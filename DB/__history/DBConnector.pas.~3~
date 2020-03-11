@@ -1,0 +1,846 @@
+unit DBConnector;
+
+interface
+
+uses
+  Classes, SysUtils,
+  {$IFDEF VER150}
+    Uni, MySQLUniProvider, DBTables, MySqlErrorsUni, MyCallUni, MemData,
+    DBAccess, DB, 
+     {$ENDIF} Dialogs,
+  ActiveX, {SMS_DS,}
+  {$IFNDEF VER150}
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Phys.MySQL,
+  FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def,
+  FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait,
+  FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt, Data.DB,
+  FireDAC.Comp.DataSet, FireDAC.Comp.Client,
+
+  {$ENDIF}
+  ADODB;
+
+type
+
+
+  TRecordColumnItem = class(TCollectionItem)
+  public
+    ColumnName : String;
+    Value : String;
+  end;
+
+  TCommonDBConnector = class;
+
+  TCommonDBQuery = class
+  public
+    Connection : TCustomConnection;
+    Query : TDataSet;
+    ParentConnector : TCommonDBConnector;
+    //
+    procedure ExecuteSQL(stSQL: String); virtual; abstract;
+    procedure OpenSQL(stSQL: String); virtual; abstract;
+    function RowsAffected : Integer; virtual; abstract;
+  end;
+
+  TCommonUniQuery = class(TCommonDBQuery)
+  public
+    procedure ExecuteSQL(stSQL: String); override;
+    procedure OpenSQL(stSQL: String); override;
+    function RowsAffected : Integer; override;
+  end;
+
+{$IFNDEF VER150}
+  TCommonFDQuery = class(TCommonDBQuery)
+  public
+    procedure ExecuteSQL(stSQL: String); override;
+    procedure OpenSQL(stSQL: String); override;
+    function RowsAffected : Integer; override;
+  end;
+{$ENDIF}
+
+  TDBConenctorStatusProc = procedure(Status: String) of object;
+
+  TCommonDBConnector = class
+  private
+    FPassword: String;
+    FServer: String;
+    FUserID: String;
+
+    FQueryList : TList;
+    FOnStatus: TDBConenctorStatusProc;
+
+  protected
+    FConnection : TCustomConnection;
+    //
+    function NewConnection: TCustomConnection; virtual; abstract;
+  public
+    constructor Create; virtual;
+    destructor Destroy; override;
+
+    //
+    procedure LoadLoginInfo;
+    procedure Connect(stServer, stUser, stPassword: String);
+
+    function GetQuery : TCommonDBQuery; virtual; abstract;
+    function GetNewQuery : TCommonDBQuery; virtual; abstract;    //for thread
+    procedure RemoveQuery(aQuery: TCommonDBQuery); virtual; abstract;
+
+    procedure ExecuteSQL(stSQL: String); virtual; abstract;
+    procedure OpenSQL(stSQL: String); virtual; abstract;
+    //
+    property Server : String read FServer write FServer;
+    property UserID : String read FUserID write FUserID;
+    property Password : String read FPassword write FPassword;
+    //
+    property OnStatus : TDBConenctorStatusProc read FOnStatus write FOnStatus;
+
+  end;
+
+{$IFDEF VER150}
+  TUniConnector = class(TCommonDBConnector)
+  protected
+    function NewConnection: TCustomConnection; override;
+    function GetQuery : TCommonDBQuery; override;
+    function GetNewQuery : TCommonDBQuery; override;
+    procedure RemoveQuery(aQuery: TCommonDBQuery); override;
+
+  end;
+{$ENDIF}
+
+{$IFNDEF VER150}
+  TFDConnector = class(TCommonDBConnector)
+  private
+    procedure AfterDisconnectProc(Sender: TObject);
+    procedure BeforeDisconnectProc(Sender: TObject);
+    procedure ConnectionLostProc(Sender: TObject);
+    procedure ConnectionErrorEvent(ASender, AInitiator: TObject;
+                var AException: Exception);
+
+  protected
+    function NewConnection: TCustomConnection; override;
+    function GetQuery : TCommonDBQuery; override;
+    function GetNewQuery : TCommonDBQuery; override;
+    procedure RemoveQuery(aQuery: TCommonDBQuery); override;
+  end;
+
+{$ENDIF}
+
+  TDBConnector = class
+  private
+
+  protected
+    FDBQuery: TDataSet;
+
+  private
+
+    FDBConnection: TADOConnection;
+    FInsertTable : String;
+
+    FInsertColumns : TCollection;
+    FDBQuery2: TADOQuery;
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure Connect(stConnectionString: String);
+
+    procedure BeginInsert(stTableName: String);
+    procedure RegColumn(stColumn, stValue: String); overload;
+    procedure RegColumn(stColumn: String; dValue : Double); overload;
+    procedure RegColumn(stColumn: String; iValue : Integer); overload;
+    procedure RegColumnByDateTime(stColumn: String; aDateTime: TDateTime);
+
+    procedure ExecuteSQL(stSQL: String); virtual;
+    procedure OpenSQL(stSQL: String); virtual;
+
+    property Query : TDataSet read FDBQuery write FDBQuery;
+    property Query2 : TADOQuery read FDBQuery2 write FDBQuery2;
+  end;
+
+{$IFDEF VER150}
+  TUniDBConnector = class
+  private
+    FUniConnection : TUniConnection;
+    //
+    FQueryList : TList;
+
+    FDBQuery : TUniQuery;
+    //FUniSQL : TUniSQL;
+    FServer: String;
+    FPassword: String;
+    FUserID: String;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    //
+    procedure LoadLoginInfo;
+    procedure Connect(stServer, stUser, stPassword: String);
+
+    procedure ExecuteSQL(stSQL: String);
+    procedure OpenSQL(stSQL: String);
+
+    function GetNewQuery : TUniQuery;
+    procedure RemoveQuery(aQuery: TUniQuery);
+
+
+    property Query : TUniQuery read FDBQuery;//UniQuery;
+    //property UniSQL : TUniSQL read FUniSQL;
+    //
+    property Server : String read FServer write FServer;
+    property UserID : String read FUserID write FUserID;
+    property Password : String read FPassword write FPassword;
+  end;
+
+{$ENDIF}
+var
+{$IFDEF VER150}
+  gUniConnector : TUniDBConnector;
+{$ENDIF}
+
+  gDBConnector : TCommonDBConnector;
+
+implementation
+
+uses ComObj;
+
+const
+  UNI_CONNECTOR_LOGIN_FILE = 'UniConnector.txt';
+
+{ TDBConnector }
+
+procedure TDBConnector.BeginInsert(stTableName: String);
+begin
+  FInsertColumns.Clear;
+
+  FInsertTable := stTableName;
+end;
+
+procedure TDBConnector.Connect(stConnectionString: String);
+begin
+  if FDBConnection.Connected then Exit;
+  //
+  FDBConnection.ConnectionString := stConnectionString;
+  FDBConnection.Connected := True;
+
+
+
+  {
+  (FDBQuery as TDataSet). := FDBConnection.;
+  FDBQuery2.Connection := FDBConnection;
+  }
+  //FDBQuery.Active := True;
+end;
+
+constructor TDBConnector.Create;
+begin
+  //
+  Exit;
+  CoInitialize(nil);
+  FDBConnection := TADOConnection.Create(nil);
+  //FDBQuery := TADOQuery.Create(nil);
+  //FDBQuery2 := TADOQuery.Create(nil);
+
+  FInsertColumns := TCollection.Create(TRecordColumnItem);
+end;
+
+destructor TDBConnector.Destroy;
+begin
+  //
+  FInsertColumns.Free;
+    //
+  FDBQuery.Free;
+  FDBQuery2.Free;
+  //
+  FDBConnection.Free;
+
+  inherited;
+end;
+
+(*
+procedure TDBConnector.ExecInsert;
+var
+  i : Integer;
+  stQuery, stColumn, stValue : String;
+  aColumn : TRecordColumnItem;
+begin
+
+  for i := 0 to FInsertColumns.Count-1 do
+  begin
+    aColumn := FInsertColumns.Items[i] as TRecordColumnItem;
+    //
+    if i = 0 then
+    begin
+      stColumn := '`'+aColumn.ColumnName+'`';
+      //
+      //if aColumn.ValueType = varString then
+      stValue := aColumn.Value;
+    end else
+    begin
+      stColumn := stColumn + ',`'+aColumn.ColumnName+'`';
+      stValue := stValue + ',' + aColumn.Value;
+    end;
+
+  end;
+  stQuery := Format('INSERT INTO %s (%s) VALUES (%s) ',
+      [FInsertTable, stColumn, stValue]);
+
+
+
+  (Query as TQuery).SQL.Clear;
+  (Query as TQuery).SQL.Add(stQuery);
+  (Query as TQuery).ExecSQL;
+
+  FInsertTable := '';
+  FInsertColumns.Clear;
+end;
+*)
+procedure TDBConnector.RegColumn(stColumn, stValue: String);
+var
+  aRecordColumn : TRecordColumnItem;
+begin
+  aRecordColumn := FInsertColumns.Add as TRecordColumnItem;
+  aRecordColumn.ColumnName := stColumn;
+  aRecordColumn.Value := '`'+stValue+'`';
+//  aRecordColumn.ValueType := varString;
+//  aRecordColumn.ValueAsString := stValue;
+end;
+
+procedure TDBConnector.RegColumn(stColumn: String; dValue: Double);
+var
+  aRecordColumn : TRecordColumnItem;
+begin
+  aRecordColumn := FInsertColumns.Add as TRecordColumnItem;
+  aRecordColumn.ColumnName := stColumn;
+  aRecordColumn.Value := Format('%.6f', [dValue]);
+  //aRecordColumn.ValueType := varDouble;
+  //aRecordColumn.ValueAsDouble := dValue;
+
+end;
+
+procedure TDBConnector.ExecuteSQL(stSQL: String);
+begin
+  //
+end;
+
+procedure TDBConnector.RegColumn(stColumn: String; iValue: Integer);
+var
+  aRecordColumn : TRecordColumnItem;
+begin
+  aRecordColumn := FInsertColumns.Add as TRecordColumnItem;
+  aRecordColumn.ColumnName := stColumn;
+  aRecordColumn.Value := IntToStr(iValue);
+//  aRecordColumn.ValueType := varInteger;
+//  aRecordColumn.ValueAsInteger := iValue;
+end;
+
+procedure TDBConnector.RegColumnByDateTime(stColumn: String;
+  aDateTime: TDateTime);
+
+var
+  aRecordColumn : TRecordColumnItem;
+begin
+  aRecordColumn := FInsertColumns.Add as TRecordColumnItem;
+  aRecordColumn.ColumnName := stColumn;
+  aRecordColumn.Value := '"'+FormatDateTime('yyyy-mm-dd hh:nn:ss', aDateTime)+'"';
+
+end;
+
+procedure TDBConnector.OpenSQL(stSQL: String);
+begin
+  //
+end;
+
+{$IFDEF VER150}
+{ TUniDBConnector }
+
+procedure TUniDBConnector.Connect(stServer, stUser, stPassword: String);
+begin
+  //
+  //FUniConnection.Server := stServer;
+  //FUniConnection.Username := stUser;
+  //FUniConnection.Password := stPassword;
+  //
+  FUniConnection.Database := 'optimize_data';
+  FUniConnection.LoginPrompt := True;
+  FUniConnection.Connected := True;
+end;
+
+constructor TUniDBConnector.Create;
+begin
+
+  FUniConnection := TUniConnection.Create(nil);
+  FUniConnection.ProviderName := 'MySQL';
+
+
+  FUniConnection.SpecificOptions.Add('UseUniCode=True');
+  FUniConnection.Server := '10.0.0.20';
+
+  FUniConnection.LoginPrompt := True;
+  FUniConnection.Database := 'optimize_data';
+
+
+
+
+  FDBQuery := TUniQuery.Create(nil);
+
+
+  FUniConnection.SpecificOptions.Add('UseUniCode=True');
+
+
+  (FDBQuery as TUniQuery).Connection := FUniConnection;
+
+  FQueryList := TList.Create;
+
+  //FUniSQL := TUniSQL.Create(nil);
+
+end;
+
+destructor TUniDBConnector.Destroy;
+var
+  i : Integer;
+  aQuery : TUniQuery;
+begin
+
+  //FUniSQL.Free;
+
+  for i := FQueryList.Count-1 downto 0 do
+  begin
+    aQuery := TUniQuery(FQueryList.Items[i]);
+    //
+    aQuery.Connection.Free;
+
+    aQuery.Free;
+  end;
+
+  FQueryList.Free;
+  //FConnectionList.Free;
+  //FMySQLUniProvider.Free;
+  //FUniQuery.Free;
+  FUniConnection.Free;
+
+  inherited;
+end;
+
+procedure TUniDBConnector.ExecuteSQL(stSQL: String);
+begin
+  //
+//  with FDBQuery do
+//  begin
+  FDBQuery.SQL.Clear;
+  FDBQuery.SQL.Add(stSQL);
+  FDBQuery.Execute;
+
+end;
+
+function TUniDBConnector.GetNewQuery: TUniQuery;
+var
+  aUniConnection :  TUniConnection;
+begin
+
+  aUniConnection := TUniConnection.Create(nil);
+  aUniConnection.ProviderName := 'MySQL';
+
+
+
+  aUniConnection.SpecificOptions.Add('UseUniCode=True');
+  aUniConnection.Server := '10.0.0.20';
+  aUniConnection.Username := 'root';
+  aUniConnection.Password := 'bearjack';
+  aUniConnection.Database := 'optimize_data';
+  aUniConnection.Connected := True;
+  ///FConnectionList.Add(aUniConnection);
+
+  Result := TUniQuery.Create(nil);
+  Result.Connection := {FUniConnection;//}aUniConnection;
+  //Result.UniDirectional := True;
+
+  //FDBQuery.Options.CompressBlobMode := cbClient;
+  FQueryList.Add(Result);
+end;
+
+procedure TUniDBConnector.LoadLoginInfo;
+var
+  aFiles : TStringList;
+  stID : String;
+begin
+  //
+  aFiles := TStringList.Create;
+
+  try
+    aFiles.LoadFromFile(UNI_CONNECTOR_LOGIN_FILE);
+
+
+    FUserID := aFiles.Values['id'];
+    FPassword := aFiles.Values['password'];
+    FUniConnection.Username := FUserID;
+    FUniConnection.Password := FPassword;
+    FUniConnection.Connect;
+
+
+  finally
+    aFiles.Free;
+  end;
+end;
+
+procedure TUniDBConnector.OpenSQL(stSQL: String);
+begin
+  try
+    with (FDBQuery as TUniQuery) do
+    begin
+      SQL.Clear;
+      SQL.Add(stSQL);
+      Open;
+      First;
+    end;
+  except on E:EMySqlException do
+    if E.ErrorCode = CR_SERVER_LOST then
+    begin
+      FUniConnection.Disconnect;
+      FUniConnection.Connect;
+    end;
+  end;
+
+
+
+
+end;
+
+procedure TUniDBConnector.RemoveQuery(aQuery: TUniQuery);
+begin
+  FQueryList.Remove(aQuery);
+  //FConnectionList.Remove(aQuery.Connection);
+  aQuery.Connection.Free;
+
+  aQuery.Free;
+end;
+
+{$ENDIF}
+
+{ TCommonDBConnector }
+
+procedure TCommonDBConnector.Connect(stServer, stUser, stPassword: String);
+begin
+
+end;
+
+constructor TCommonDBConnector.Create;
+begin
+  FQueryList := TList.Create;
+
+  FConnection := NewConnection;
+end;
+
+destructor TCommonDBConnector.Destroy;
+var
+  i : Integer;
+  aCommQuery : TCommonUniQuery;
+begin
+  for i := FQueryList.Count-1 downto 0 do
+  begin
+    aCommQuery := TCommonUniQuery(FQueryList.Items[i]);
+    //
+    RemoveQuery(aCommQuery);
+  end;
+
+  FQueryList.Free;
+  //
+
+  if FConnection <> nil then
+  begin
+    FConnection.Connected := False;
+    FConnection.Free;
+  end;
+
+  inherited;
+end;
+
+
+
+
+procedure TCommonDBConnector.LoadLoginInfo;
+begin
+
+end;
+
+
+
+
+{ TUniConnector }
+
+
+
+{ TUniConnector }
+
+{$IFDEF VER150}
+
+function TUniConnector.GetNewQuery: TCommonDBQuery;
+begin
+  Result := TCommonUniQuery.Create;
+  FQueryList.Add(Result);
+
+  //
+  Result.Connection := NewConnection;
+
+  Result.Query := TUniQuery.Create(nil);
+  (Result.Query as TUniQuery).Connection := Result.Connection as TUniConnection;
+
+
+end;
+
+
+function TUniConnector.GetQuery: TCommonDBQuery;
+begin
+  Result := TCommonUniQuery.Create;
+  FQueryList.Add(Result);
+  //
+  Result.Connection := FConnection;
+
+  Result.Query := TUniQuery.Create(nil);
+  (Result.Query as TUniQuery).Connection := Result.Connection as TUniConnection;
+
+end;
+
+function TUniConnector.NewConnection: TCustomConnection;
+begin
+  Result:= TUniConnection.Create(nil);
+  with Result as TUniConnection do
+  begin
+    ProviderName := 'MySQL';
+
+    SpecificOptions.Add('UseUniCode=True');
+    Server := '10.0.0.20';
+    Username := 'root';
+    Password := 'bearjack';
+    Database := 'optimize_data';
+    Connected := True;
+  end;
+
+end;
+
+procedure TUniConnector.RemoveQuery(aQuery: TCommonDBQuery);
+begin
+  FQueryList.Remove(aQuery);
+  aQuery.Query.Free;
+  //
+  if aQuery.Connection <> FConnection then
+    aQuery.Connection.Free;
+  //
+  aQuery.Free;
+end;
+{$ENDIF}
+{ TCommonUniQuery }
+
+procedure TCommonUniQuery.ExecuteSQL(stSQL: String);
+begin
+{$IFDEF VER150}
+  with Query as TUniQuery do
+  begin
+    SQL.Clear;
+    SQL.Add(stSQL);
+    Execute;
+  end;
+{$ENDIF}
+
+end;
+
+procedure TCommonUniQuery.OpenSQL(stSQL: String);
+begin
+{$IFDEF VER150}
+  with Query as TUniQuery do
+  begin
+    SQL.Clear;
+    SQL.Add(stSQL);
+    Open;
+  end;
+{$ENDIF}
+
+end;
+
+function TCommonUniQuery.RowsAffected: Integer;
+begin
+{$IFDEF VER150}
+  Result := (Query as TUniQuery).RowsAffected;
+{$ENDIF}
+
+end;
+
+{$IFNDEF VER150}
+{ TFireConnector }
+
+procedure TFDConnector.AfterDisconnectProc(Sender: TObject);
+begin
+  if Assigned(FOnStatus) then
+    FOnStatus('After FDConnection Disconnected');
+end;
+
+procedure TFDConnector.BeforeDisconnectProc(Sender: TObject);
+begin
+  if Assigned(FOnStatus) then
+    FOnStatus('Before FDConnection Disconnected');
+end;
+
+procedure TFDConnector.ConnectionErrorEvent(ASender, AInitiator: TObject;
+  var AException: Exception);
+begin
+  if Assigned(FOnStatus) then
+    FOnStatus('Connection Exception : '+AException.Message);
+end;
+
+procedure TFDConnector.ConnectionLostProc(Sender: TObject);
+begin
+  //
+  if Assigned(FOnStatus) then
+    FOnStatus('Connection Lost !');
+end;
+
+function TFDConnector.GetNewQuery: TCommonDBQuery;
+begin
+
+  Result := TCommonFDQuery.Create;
+  FQueryList.Add(Result);
+
+  //
+  Result.ParentConnector := Self;
+  Result.Connection := NewConnection;
+
+  Result.Query := TFDQuery.Create(nil);
+  (Result.Query as TFDQuery).Connection := Result.Connection as TFDConnection;
+
+end;
+
+function TFDConnector.GetQuery: TCommonDBQuery;
+begin
+  Result := TCommonFDQuery.Create;
+  FQueryList.Add(Result);
+
+  //
+  Result.ParentConnector := Self;
+  Result.Connection := FConnection;
+
+  // check connected
+  //if not FConnection.Connected then
+  //  FConnection.Connected := True;
+  //
+
+  Result.Query := TFDQuery.Create(nil);
+  (Result.Query as TFDQuery).Connection := Result.Connection as TFDConnection;
+
+end;
+
+function TFDConnector.NewConnection: TCustomConnection;
+const
+  FILE_DB_ACCESS = 'db_access.txt';
+begin
+  Result := TFDConnection.Create(nil);
+  Result.AfterDisconnect := AfterDisconnectProc;
+  Result.BeforeDisconnect := BeforeDisconnectProc;
+
+  with Result as TFDConnection do
+  begin
+    OnLost := ConnectionLostProc;
+    OnError := ConnectionErrorEvent;
+
+    if FileExists(FILE_DB_ACCESS) then
+      Params.LoadFromFile(FILE_DB_ACCESS);
+    {
+    Params.Add('CharacterSet=utf8');
+    Params.Add('Unicode=True');
+    Params.Add('Server=10.0.0.20');
+    Params.Add('DriverID=MySQL');
+    Params.Add('User_Name=root');
+    Params.Add('Password=bearjack');
+    Params.Add('Database=optimize_data');
+    }
+    ResourceOptions.AutoReconnect := True;
+
+    Connected := True;
+  end;
+
+
+end;
+
+procedure TFDConnector.RemoveQuery(aQuery: TCommonDBQuery);
+begin
+  FQueryList.Remove(aQuery);
+  aQuery.Query.Free;
+  //
+  if aQuery.Connection <> FConnection then
+  begin
+    aQuery.Connection.Connected := False;
+    aQuery.Connection.Free;
+  end;
+  //
+  aQuery.Free;      
+  //
+
+end;
+
+{ TCommonFDQuery }
+
+procedure TCommonFDQuery.ExecuteSQL(stSQL: String);
+begin
+  with Query as TFDQuery do
+  begin
+    if not Connection.Connected then
+      Connection.Connected := True;
+    //
+    SQL.Clear;
+    SQL.Add(stSQL);
+    Execute;
+  end;
+end;
+
+procedure TCommonFDQuery.OpenSQL(stSQL: String);
+begin
+
+  with Query as TFDQuery do
+  begin
+    if not Connection.Connected then
+    begin
+      Connection.Connected := True;
+      //
+      if (ParentConnector <> nil) and Assigned(ParentConnector.OnStatus) then
+      begin
+        if (ParentConnector <> nil) and Assigned(ParentConnector.OnStatus) then
+          ParentConnector.OnStatus(
+          Format('Reconnect... :%d, %s',
+          [Integer(Connection.State), BoolToStr(Connection.Connected, True)]));
+      end;
+
+    end;
+    //
+    SQL.Clear;
+    SQL.Add(stSQL);
+
+    try
+      Open;
+    except on E: EFDException do
+      //
+      if (ParentConnector <> nil) and Assigned(ParentConnector.OnStatus) then
+        ParentConnector.OnStatus(
+          Format('FDQuery Failed:%s, %d, %s, %s',
+          [E.Message, Integer(Connection.State), BoolToStr(Connection.Connected, True), SQL.Text]));
+    end;
+  end;
+end;
+
+function TCommonFDQuery.RowsAffected: Integer;
+begin
+  Result := (Query as TFDQuery).RowsAffected;
+end;
+
+{$ENDIF}
+
+initialization
+
+
+
+
+finalization
+
+
+
+
+
+
+end.

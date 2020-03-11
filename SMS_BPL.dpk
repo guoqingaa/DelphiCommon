@@ -1,0 +1,107 @@
+package SMS_BPL;
+
+{$R *.res}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO ON}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$IMPLICITBUILD OFF}
+
+requires
+  rtl,
+  vcljpg,
+  vcl,
+  dbrtl,
+  indy,
+  vcldb,
+  adortl,
+  vclx;
+
+contains
+  DSMSRangeCompareTemplateManager in 'DSMSRangeCompareTemplateManager.pas' {RangeCompareTemplateManager},
+  Office_TLB in 'Office_TLB.pas',
+  SMS_Actions in 'SMS_Actions.pas',
+  SMS_Apps in 'SMS_Apps.pas',
+  SMS_ArrayUtils in 'SMS_ArrayUtils.pas',
+  SMS_Consts in 'SMS_Consts.pas',
+  SMS_ConvertTypes in 'SMS_ConvertTypes.pas',
+  SMS_CtrlDrawings in 'SMS_CtrlDrawings.pas',
+  SMS_CtrlUtils in 'SMS_CtrlUtils.pas',
+  SMS_DateTimeDS in 'SMS_DateTimeDS.pas',
+  SMS_DateTimes in 'SMS_DateTimes.pas',
+  SMS_DB in 'SMS_DB.pas',
+  SMS_DrawingUtils in 'SMS_DrawingUtils.pas',
+  SMS_DS in 'SMS_DS.pas',
+  SMS_Files in 'SMS_Files.pas',
+  SMS_FTPThread in 'SMS_FTPThread.pas',
+  SMS_GlobalVariables in 'SMS_GlobalVariables.pas',
+  SMS_Graphics in 'SMS_Graphics.pas',
+  SMS_Highlighter in 'SMS_Highlighter.pas',
+  SMS_Image in 'SMS_Image.pas',
+  SMS_KeyBoards in 'SMS_KeyBoards.pas',
+  SMS_Maths in 'SMS_Maths.pas',
+  SMS_Media in 'SMS_Media.pas',
+  SMS_Messages in 'SMS_Messages.pas',
+  SMS_RangeCompare in 'SMS_RangeCompare.pas',
+  SMS_Strings in 'SMS_Strings.pas',
+  SMS_Systems in 'SMS_Systems.pas',
+  SMS_TextFileEditor in 'SMS_TextFileEditor.pas' {TextFileEditor},
+  SMS_Threads in 'SMS_Threads.pas',
+  SMS_Types in 'SMS_Types.pas',
+  SMS_UtilObjects in 'SMS_UtilObjects.pas',
+  SMS_Windows in 'SMS_Windows.pas',
+  Broadcaster in 'Manager\Broadcaster.pas',
+  LogManager in 'Manager\LogManager.pas',
+  SMS_Broadcaster in 'Manager\SMS_Broadcaster.pas',
+  SMS_StatusManager in 'Manager\SMS_StatusManager.pas',
+  StatusManager in 'Manager\StatusManager.pas',
+  SMS_Columns in 'Columns\SMS_Columns.pas',
+  SMS_DColEdit in 'Columns\SMS_DColEdit.pas' {ColEditDialog},
+  SMS_FormatColumns in 'Columns\SMS_FormatColumns.pas',
+  DCheckFilterDialog in 'Dialogs\DCheckFilterDialog.pas' {CheckFilterDialog},
+  DConfigKeyDialog in 'Dialogs\DConfigKeyDialog.pas' {ConfigKeyDialog},
+  DFilterDialog in 'Dialogs\DFilterDialog.pas' {FilterDialog},
+  DGridColors in 'Dialogs\DGridColors.pas' {GridColorDialog},
+  DInputString in 'Dialogs\DInputString.pas' {InputStringDialog},
+  DRichTokenDialog in 'Dialogs\DRichTokenDialog.pas' {RichTokenDialog},
+  DSelectCombo in 'Dialogs\DSelectCombo.pas' {SelectComboDialog},
+  DSelectStrings in 'Dialogs\DSelectStrings.pas' {SelectStrings},
+  DSelectTwoWay in 'Dialogs\DSelectTwoWay.pas' {SelectTwoWayDialog},
+  DSMS_ConfirmDialog in 'Dialogs\DSMS_ConfirmDialog.pas' {ConfirmDialog},
+  DSMS_ListSelector in 'Dialogs\DSMS_ListSelector.pas' {ListSelectorDialog},
+  DStringListView in 'Dialogs\DStringListView.pas' {StringListViewForm},
+  DStringPriority in 'Dialogs\DStringPriority.pas' {StringPriorityConfig},
+  DTimeFilter in 'Dialogs\DTimeFilter.pas' {TimeFilterDialog},
+  DTokenDialog in 'Dialogs\DTokenDialog.pas' {TokenDialog},
+  SMS_DInputStep in 'Dialogs\SMS_DInputStep.pas' {StepInputDialog},
+  SMS_DTextEditor in 'Dialogs\SMS_DTextEditor.pas' {TextEditor},
+  SMS_DTimes in 'Dialogs\SMS_DTimes.pas' {TimesDialog},
+  SMS_FileDirDialog in 'Dialogs\SMS_FileDirDialog.pas' {FileDirDialog},
+  SMS_InspectorGrid in 'Dialogs\SMS_InspectorGrid.pas',
+  SMS_InspectorGridDialog in 'Dialogs\SMS_InspectorGridDialog.pas' {InspectorGridDialog},
+  SMS_StatusViewer in 'Dialogs\SMS_StatusViewer.pas' {StatusViewer},
+  SMS_Hint in 'Window\SMS_Hint.pas' {SMSHint},
+  SMS_LogWindow in 'Window\SMS_LogWindow.pas' {SMSLogWindow},
+  SMS_Progress in 'Window\SMS_Progress.pas' {SMS_ProgressWindow},
+  SMS_ListSelector in 'Classes\SMS_ListSelector.pas',
+  SMS_Variables in 'SMS_Variables.pas',
+  SMS_Steps in 'Structure\SMS_Steps.pas';
+
+end.

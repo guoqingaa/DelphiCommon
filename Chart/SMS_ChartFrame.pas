@@ -1,0 +1,800 @@
+unit SMS_ChartFrame;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Types,
+  ExtCtrls,
+  Dialogs, Math, Menus, SMS_InspectorGridDialog, MSXML_TLB, SMS_XMLs;
+
+const
+  SCHART_FRAME_COLORS : array[0..2] of TColor = (clBlack, clGreen, clGray);
+
+  {
+    (Value: clMaroon; Name: 'clMaroon'),
+    (Value: clGreen; Name: 'clGreen'),
+    (Value: clOlive; Name: 'clOlive'),
+    (Value: clNavy; Name: 'clNavy'),
+    (Value: clPurple; Name: 'clPurple'),
+    (Value: clTeal; Name: 'clTeal'),
+    (Value: clGray; Name: 'clGray'),
+    (Value: clSilver; Name: 'clSilver'),
+    (Value: clRed; Name: 'clRed'),
+    (Value: clLime; Name: 'clLime'),
+    (Value: clYellow; Name: 'clYellow'),
+    (Value: clBlue; Name: 'clBlue'),
+    (Value: clFuchsia; Name: 'clFuchsia'),
+    (Value: clAqua; Name: 'clAqua'),
+    (Value: clWhite; Name: 'clWhite'),
+  }
+
+type
+
+  TSChartMode = (st1);
+  TYScalePosType = (ysLeft, ysRight, ysNone);
+  TYScalePosTypes = set of TYScalePosType;
+
+
+  TSChartLineItem = class(TCollectionItem)
+  public
+    Value : Double;
+    Value2 : Double;
+    Color : TColor;
+    Style : TPenStyle;
+    Width : Byte;
+    Text : String;
+  end;
+
+  TSChartSeriesItem = class(TCollectionItem)
+  public
+    Title : String;
+    Values : TDoubleDynArray;
+    Precision : Word;
+    //
+    Enabled : Boolean;
+    PenStyle : TPenStyle;
+    PenColor : TColor;
+    PenWidth : Word;
+    //
+    MaxValue : Double; //미리 지정할 수 있다. 지정되 있지 않다면 Nan;
+    MinValue : Double;
+    //
+    constructor Create(aColl: TCollection); override;
+    destructor Destroy; override;
+  end;
+
+  TSChartFrame = class(TFrame)
+    PaintChart: TPaintBox;
+    PopupMenu1: TPopupMenu;
+    Properties1: TMenuItem;
+    procedure PaintChartPaint(Sender: TObject);
+    procedure Properties1Click(Sender: TObject);
+    procedure PaintChartMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+  private
+    { Private declarations }
+
+    FSChartMode: TSChartMode;
+    //
+    FFullRect : TRect;
+
+    FBitmap : TBitmap;
+    FBackColor: TColor;
+    FYScalePos: TYScalePosTypes;
+    FYScaleTextWidth: Word;
+    FXScaleHeight: Word;
+    FDrawRectSpace: Word;
+    FDrawRectFrameColor: TColor;
+
+    FSeriesCollection : TCollection;
+    FXSeries: TSChartSeriesItem;
+    FYScaleMarginRate: Double;
+
+    FHLines: TCollection;
+    FVLines : TCollection;
+    FYScaleTextSpace: Word;
+    FXScaleTextSpace: Word;
+    FYAxisTitle: String;
+    FOnChartMouseUp: TMouseEvent;
+    FOnChartMouseDown: TMouseEvent;
+    FOnChartMouseMove: TMouseMoveEvent;
+    //FXScaleTitle: String;
+
+    procedure InitValues;
+    procedure SetYScaleWidth(const Value: Word);
+  public
+    { Public declarations }
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+
+  public
+    function AddSeries(const stTitle : String; aColor : TColor = -1): TSChartSeriesItem;
+    procedure ClearValues;
+    procedure ExtendValues(const iLength: Word);
+    //
+    function AddHLine(const dValue : Double; aColor : TColor = clBlue; aPenStyle: TPenStyle = psSolid): TSChartLineItem;
+    function AddVLine(const dValue : Double; aColor : TColor = clBlue; aPenStyle: TPenStyle = psSolid): TSChartLineItem;
+
+    //
+    procedure ReDraw;
+
+    function OpenFontProperties: Boolean;
+
+    function Save(aElement : IXMLDOMElement): Boolean;
+    function Load(aElement : IXMLDOMElement): Boolean;
+
+  public
+    property SChartMode : TSChartMode read FSChartMode;
+    property BackColor : TColor read FBackColor;
+    property XScaleHeight : Word read FXScaleHeight;
+    property YScalePos : TYScalePosTypes read FYScalePos;
+    property YScaleTextWidth : Word read FYScaleTextWidth;
+    property DrawRectSpace : Word read FDrawRectSpace;
+    property DrawRectFrameColor : TColor read FDrawRectFrameColor;
+    property YScaleMarginRate: Double read FYScaleMarginRate;
+    //
+    property XScaleTextSpace : Word read FXScaleTextSpace;
+    property YScaleTextSpace : Word read FYScaleTextSpace;
+    //
+    property YAxisTitle : String read FYAxisTitle write FYAxisTitle;
+    //
+
+    property XSeries : TSChartSeriesItem read FXSeries write FXSeries;
+
+  public
+    property OnChartMouseDown: TMouseEvent read FOnChartMouseDown write FOnChartMouseDown;
+    property OnChartMouseMove: TMouseMoveEvent read FOnChartMouseMove write FOnChartMouseMove;
+    property OnChartMouseUp: TMouseEvent read FOnChartMouseUp write FOnChartMouseUp;
+  end;
+
+implementation
+
+uses SMS_InspectorGrid;
+
+{$R *.dfm}
+
+function TSChartFrame.AddHLine(const dValue: Double; aColor: TColor;
+  aPenStyle: TPenStyle): TSChartLineItem;
+begin
+  Result := FHLines.Add as TSChartLineItem;
+  Result.Value := dValue;
+  Result.Color := aColor;
+  Result.Style := aPenStyle;
+end;
+
+function TSChartFrame.AddSeries(const stTitle: String; aColor : TColor): TSChartSeriesItem;
+var
+  iLow, iHigh : Integer;
+begin
+  Result := FSeriesCollection.Add as TSChartSeriesItem;
+  Result.Title := stTitle;
+  //
+  if aColor < 0 then
+  begin
+    iLow := Low(SCHART_FRAME_COLORS);
+    iHigh := High(SCHART_FRAME_COLORS);
+    Result.PenColor := SCHART_FRAME_COLORS[Result.Index mod (iHigh-iLow)];
+  end else
+    Result.PenColor := aColor;
+end;
+
+function TSChartFrame.AddVLine(const dValue: Double; aColor: TColor;
+  aPenStyle: TPenStyle): TSChartLineItem;
+begin
+  Result := FVLines.Add as TSChartLineItem;
+  Result.Value := dValue;
+  Result.Color := aColor;
+  Result.Style := aPenStyle;
+end;
+
+procedure TSChartFrame.ClearValues;
+var
+  i : Integer;
+begin
+  for i := 0 to FSeriesCollection.Count-1 do
+    TSChartSeriesItem(FSeriesCollection.Items[i]).Values := nil;
+end;
+
+constructor TSChartFrame.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  //
+  InitValues;
+  //
+  FBitmap := TBitmap.Create;
+  FSeriesCollection := TCollection.Create(TSChartSeriesItem);
+  //
+  if AOwner is TForm then
+    FBitmap.Canvas.Font.Assign((AOwner as TForm).Font);
+  //aowner.font
+  FHLines := TCollection.Create(TSChartLineItem);
+  FVLines := TCollection.Create(TSChartLineItem);
+end;
+
+destructor TSChartFrame.Destroy;
+begin
+  FHLines.Free;
+  FVLines.Free;
+  //  
+  FSeriesCollection.Free;
+  FBitmap.Free;
+  //
+  FHLines := nil;
+  //
+  inherited;
+end;
+
+procedure TSChartFrame.ExtendValues(const iLength: Word);
+var
+  i : Integer;
+  aItem : TSChartSeriesItem;
+begin
+  for i := 0 to FSeriesCollection.Count-1 do
+  begin
+    aItem := TSChartSeriesItem(FSeriesCollection.Items[i]);
+    SetLength(aItem.Values, iLength);
+  end;
+
+end;
+
+procedure TSChartFrame.InitValues;
+begin
+  FBackColor := clWhite;
+  FYScalePos := [ysLeft];
+  FYScaleTextWidth := 20;
+  FXScaleHeight := 10;
+  FDrawRectSpace := 5;
+  FDrawRectFrameColor := clGray;
+  //
+
+  FYScaleMarginRate := 10;
+
+  FXScaleTextSpace := 10;
+  FYScaleTextSpace := 10;
+
+end;
+
+function TSChartFrame.OpenFontProperties: Boolean;
+var
+  aDialog : TFontDialog;
+begin
+  aDialog := TFontDialog.Create(Self);
+  try
+    aDialog.Font.Assign(FBitmap.Canvas.Font);
+    if aDialog.Execute then
+      FBitmap.Canvas.Font.Assign(aDialog.Font);
+  finally
+    aDialog.Free;
+  end;
+end;
+
+procedure TSChartFrame.PaintChartPaint(Sender: TObject);
+const
+  MIN_DRAW_RECT_WIDTH = 10;
+var
+  iX, iY, iLength : Integer;
+  aDrawRect : TRect;
+
+  stText : String;
+  aSize : TSize;
+  dRegulatedStep, dLog, dRegulatedMin, dRegulatedCurrent, dOneStep : Double;
+  dYMin, dYMax, dYR, dXR,  dXMax, dXMin : Double;
+
+    procedure DrawXScale;
+    var
+      z : Integer;
+      iXScaleCount : Integer;
+    begin
+      iLength := Length(FXSeries.Values);
+      //
+      if iLength = 0 then Exit;
+      //
+      dXMin := FXSeries.Values[0];
+      dXMax := FXSeries.Values[iLength-1];
+      dXR := (aDrawRect.Right - aDrawRect.Left - 1) / (dXMax - dXMin);
+      //
+      if IsZero(dXMax - dXMin) or (dXR <= 0) then Exit;
+      //
+      aSize := FBitmap.Canvas.TextExtent(Format('%.*n', [FXSeries.Precision, dXMax]));
+      iXScaleCount := Round((aDrawRect.Right - aDrawRect.Left - 1) / (aSize.cx + FXScaleTextSpace));
+      //
+      dOneStep := (dXMax - dXMin) / iXScaleCount;
+      dLog := Log10(dOneStep);
+      dRegulatedStep := Power(10, Ceil(dLog));
+      if dRegulatedStep / 2 > dOneStep then
+        dRegulatedStep := dRegulatedStep / 2;       //추가로 5 가 의미있는 숫자가 지정됨.
+      //
+      dRegulatedMin := Ceil(dXMin / dRegulatedStep) * dRegulatedStep;
+      dRegulatedCurrent := dRegulatedMin;
+      iY := aDrawRect.Bottom;
+      while (dRegulatedCurrent < dXMax) do
+      with FBitmap.Canvas do
+      begin
+        try
+          iX := aDrawRect.Left + Round(dXR * (dRegulatedCurrent - dXMin));
+          Pen.Color := clLtGray;
+          Pen.Style := psDot;
+          Pen.Width := 1;
+          MoveTo(iX, aDrawRect.Top);
+          LineTo(iX, aDrawRect.Bottom);
+          stText := Format('%.*n', [FXSeries.Precision, dRegulatedCurrent]);
+          TextOut(iX, iY, stText);
+
+        finally
+          dRegulatedCurrent:= dRegulatedCurrent + dRegulatedStep;
+        end;
+      end;
+
+    end;
+
+    procedure DrawYScale;
+    var
+      iY, iYTextCount : Integer;
+      dPLPerStep, dValidateStep, dOneStep, dLog, dRegulatedStep, dRegulatedMin, dRegulatedCurrent : Double;
+    begin
+      //
+      with FBitmap.Canvas do
+      begin
+        aSize := TextExtent('11');
+        //
+        iYTextCount := Floor((aDrawRect.Bottom - aDrawRect.Top + 1) / (aSize.cy + FYScaleTextSpace));
+        //
+        if (iYTextCount = 0) or IsZero(dYMax - dYMin) then Exit;
+        //
+        dYR := (aDrawRect.Bottom - aDrawRect.Top + 1) / (dYMax - dYMin);
+        //                    //
+        if IsNan(dYR) or (dYR <= 0) then Exit;
+        //
+        dOneStep := (dYMax - dYMin) / iYTextCount;
+        dLog := Log10(dOneStep);
+        dRegulatedStep := Power(10, Ceil(dLog));
+        if dRegulatedStep / 2 > dOneStep then
+          dRegulatedStep := dRegulatedStep / 2;       //추가로 5 가 의미있는 숫자가 지정됨.
+        //
+        dRegulatedMin := Ceil(dYMin / dRegulatedStep) * dRegulatedStep;
+        dRegulatedCurrent := dRegulatedMin;
+        //
+        while (dRegulatedCurrent < dYMax) do
+        begin
+          try
+            iY := aDrawRect.Bottom - Round(dYR * (dRegulatedCurrent - dYMin));
+            Pen.Color := clLtGray;
+            Pen.Style := psDot;
+            Pen.Width := 1;
+            MoveTo(aDrawRect.Left, iY);
+            LineTo(aDrawRect.Right, iY);
+            //
+            stText := Format('%.*n', [FXSeries.Precision, dRegulatedCurrent]);
+            aSize := TextExtent(stText);
+            TextOut(aDrawRect.Left - aSize.cx - 2, iY - aSize.cy div 2, stText);
+          finally
+            dRegulatedCurrent:= dRegulatedCurrent + dRegulatedStep;
+          end;
+        end;
+        //
+      end;
+    end;
+
+
+    procedure CalculateYMinMax;
+    var
+      z : Integer;
+      aItem : TSChartSeriesItem;
+      iCnt : Integer;
+      dHeight : Double;
+      aLine : TSChartLineItem;
+    begin
+      //2.Calc the Y Value Min/Max
+      dYMin := Nan;
+      dYMax := Nan;
+      iCnt := 0;
+      //
+      for z:=0 to FSeriesCollection.Count-1 do
+      begin
+        aItem := FSeriesCollection.Items[z] as TSChartSeriesItem;
+        with aItem do
+          if Enabled and (aItem <> XSeries) then
+          begin
+            if IsNan(MinValue) or IsNan(MaxValue) then continue;
+            //
+            if iCnt = 0 then
+            begin
+              dYMin := aItem.MinValue;
+              dYMax := aItem.MaxValue;
+            end else
+            begin
+              dYMin := Min(aItem.MinValue, dYMin);
+              dYMax := Max(aItem.MaxValue, dYMax);
+            end;
+            Inc(iCnt);
+          end;
+      end;
+      //
+      for z := 0 to FHLines.Count-1 do
+      begin
+        aLine := FHLines.Items[z] as TSChartLineItem;
+        //
+        if IsNan(aLine.Value) then Continue;
+        //
+        dYMin := Min(dYMin, aLine.Value);
+        dYMax := Max(dYMax, aLine.Value);
+      end;
+      //
+      if not IsZero(dYMax - dYMin) then
+      begin
+        dHeight := (dYMax-dYMin);
+        dYMax := dYMax + dHeight * YScaleMarginRate/100;
+        dYMin := dYMin - dHeight * YScaleMarginRate/100;
+      end;
+
+    end;
+
+    procedure DrawSeries;
+    var
+      x, y : Integer;
+      aItem : TSChartSeriesItem;
+      aLine : TSChartLineItem;
+    begin
+      //
+      if FXSeries = nil then Exit;
+      //
+      with FBitmap.Canvas do
+      begin
+        for x:=0 to FSeriesCollection.Count-1 do
+        begin
+          aItem := FSeriesCollection.Items[x] as TSChartSeriesItem;
+          //
+          if not aItem.Enabled then continue;
+          //
+          if aItem = FXSeries then continue;
+          //
+          for y := 0 to Length(aItem.Values)-1 do
+          begin
+            iX := aDrawRect.Left + Round(dXR * (FXSeries.Values[y] - dXMin));
+            iY := aDrawRect.Bottom - Round(dYR * (aItem.Values[y]-dYMin)){-1};
+            //
+            Pen.Color := aItem.PenColor;
+            Pen.Style := aItem.PenStyle;
+            Pen.Width := aItem.PenWidth;
+            if y = 0 then
+              MoveTo(iX, iY)
+            else
+              LineTo(iX, iY);
+
+            //
+            // scale value
+            //stText := Format('%.*n', [FXSeries.Precision, FXSeries.Values[z]]);
+            {
+            aSize := TextExtent(stText);
+              TextOut(iX - aSize.cx div 2, aDrawRect.Bottom + 5, stText);
+            }
+            //TextOut(iX, iY, stText);
+              //
+
+          end;
+
+        end;
+        //
+        for x := 0 to FHLines.Count-1 do
+        begin
+          aLine := FHLines.Items[x] as TSChartLineItem;
+          //
+          if IsNan(aLine.Value) then Continue;
+          //
+          iY := aDrawRect.Bottom - Round(dYR * (aLine.Value-dYMin)){-1};
+          Pen.Color := aLine.Color;
+          Pen.Style := aLine.Style;
+          MoveTo(aDrawRect.Left, iY);
+          LineTo(aDrawRect.Right, iY);
+        end;
+        //
+        for x := 0 to FVLines.Count-1 do
+        begin
+          aLine := FVLines.Items[x] as TSChartLineItem;
+          //
+          if IsNan(aLine.Value) then Continue;
+          //
+          iX := aDrawRect.Left + Round(dXR * (aLine.Value - dXMin));
+          //
+          Pen.Color := aLine.Color;
+          Pen.Style := aLine.Style;
+          MoveTo(iX, aDrawRect.Top);
+          LineTo(iX, aDrawRect.Bottom);
+        end;
+      end;
+
+    end;
+
+    procedure DrawAxisTitle;
+    var
+      aSize : TSize;
+    begin
+      with FBitmap.Canvas do
+      begin
+        if (FXSeries <> nil) and (FXSeries.Title <> '') then
+        begin
+          aSize := TextExtent(FXSeries.Title);
+          TextOut(aDrawRect.Right - aSize.cx - 2{space}, aDrawRect.Bottom - aSize.cy, FXSeries.Title);
+        end;
+        //
+        if (FYAxisTitle <> '') then
+        begin
+          //aSize := TextExtent(FYAxisTitle);
+          TextOut(aDrawRect.Left + 2{space}, aDrawRect.Top + 2{space}, FYAxisTitle);
+        end;
+      end;
+    end;
+
+begin
+  //
+  FBitmap.Height:= PaintChart.Height;
+  FBitmap.Width:= PaintChart.Width;
+  FFullRect := PaintChart.ClientRect;
+  //
+  aDrawRect := FFullRect;
+  aDrawRect := Rect(aDrawRect.Left + FDrawRectSpace,
+                    aDrawRect.Top + FDrawRectSpace,
+                    aDrawRect.Right - FDrawRectSpace,
+                    aDrawRect.Bottom - FDrawRectSpace);
+
+  aDrawRect.Bottom := aDrawRect.Bottom - FXScaleHeight;
+
+  if ysLeft in FYScalePos then
+    aDrawRect.Left := FFullRect.Left + FYScaleTextWidth;
+  //
+  //Draw BackGround
+  FBitmap.Canvas.Brush.Color:= FBackColor; //clWhite;
+  FBitmap.Canvas.FillRect(FFullRect);
+  //
+  if aDrawRect.Right - aDrawRect.Left < MIN_DRAW_RECT_WIDTH then Exit;
+
+  with FBitmap.Canvas do
+  begin
+    DrawXScale;
+    //
+    CalculateYMinMax;
+    //
+    DrawYScale;
+    DrawSeries;
+    //
+    DrawAxisTitle;
+    //
+    Brush.Color := FDrawRectFrameColor;
+    FrameRect(aDrawRect);
+
+  end;    // FBitmap
+
+  PaintChart.Canvas.Draw(0, 0, FBitmap);
+
+end;
+
+procedure TSChartFrame.ReDraw;
+begin
+  //
+  //PaintChart.Invalidate;
+  PaintChartPaint(PaintChart);
+end;
+
+procedure TSChartFrame.SetYScaleWidth(const Value: Word);
+begin
+  FYScaleTextWidth := Value;
+end;
+
+{ TSChartSeriesItem }
+
+constructor TSChartSeriesItem.Create(aColl: TCollection);
+begin
+  inherited Create(aColl);
+  //
+  Precision := 0;
+  Enabled := True;
+  MaxValue := NaN;
+  MinValue := NaN;
+  //
+  PenStyle := psSolid;
+  PenColor := clBlack;
+  PenWidth := 1;
+end;
+
+destructor TSChartSeriesItem.Destroy;
+begin
+  Values := nil;
+  //
+  inherited;
+end;
+
+procedure TSChartFrame.Properties1Click(Sender: TObject);
+var
+  aInspectorDialog : TInspectorGridDialog;
+begin
+  //
+  aInspectorDialog := TInspectorGridDialog.Create(Self);
+  try
+    with aInspectorDialog.InspectorGrid do
+    begin
+      AddWordProperty('YScale Text Width', FYScaleTextWidth);
+      //SChartMode : TSChartMode read FSChartMode;
+      AddWordProperty('XScale Height', FXScaleHeight);
+      //property YScalePos : TYScalePosTypes read FYScalePos;
+
+      AddWordProperty('DrawRect Space', FDrawRectSpace);
+      AddFloatProperty('YScale MarginRate', FYScaleMarginRate);
+      //
+      AddWordProperty('XScale TextSpace', FXScaleTextSpace);
+      AddWordProperty('YScale TextSpace', FYScaleTextSpace);
+
+      AddGroupSeparator('Color');
+      AddColorProperty('BackColor', FBackColor);
+      AddColorProperty('DrawRect FrameColor', FDrawRectFrameColor);
+    end;
+    //
+    if aInspectorDialog.Execute then
+    begin
+      aInspectorDialog.InspectorGrid.ApplyProperties;
+      //
+      ReDraw;
+    end;
+  finally
+    aInspectorDialog.Free;
+  end;
+end;
+
+function TSChartFrame.Load(aElement: IXMLDOMElement): Boolean;
+begin
+  GetAttribute(aElement, 'YScale_Text_Width', FYScaleTextWidth);
+  GetAttribute(aElement, 'XScale_Height', FXScaleHeight);
+  GetAttribute(aElement, 'DrawRect_Space', FDrawRectSpace);
+  GetAttribute(aElement, 'YScale_MarginRate', FYScaleMarginRate);
+    //
+  GetAttribute(aElement, 'XScale_TextSpace', FXScaleTextSpace);
+  GetAttribute(aElement, 'YScale_TextSpace', FYScaleTextSpace);
+
+  GetAttribute(aElement, 'BackColor', FBackColor);
+  GetAttribute(aElement, 'DrawRect_FrameColor', FDrawRectFrameColor);
+  //
+  PaintChart.Invalidate;
+
+end;
+
+function TSChartFrame.Save(aElement: IXMLDOMElement): Boolean;
+begin
+  with aElement do
+  begin
+    setAttribute('YScale_Text_Width', FYScaleTextWidth);
+    setAttribute('XScale_Height', FXScaleHeight);
+    setAttribute('DrawRect_Space', FDrawRectSpace);
+    setAttribute('YScale_MarginRate', FYScaleMarginRate);
+      //
+    setAttribute('XScale_TextSpace', FXScaleTextSpace);
+    setAttribute('YScale_TextSpace', FYScaleTextSpace);
+
+    setAttribute('BackColor', FBackColor);
+    setAttribute('DrawRect_FrameColor', FDrawRectFrameColor);
+  end;
+
+end;
+
+procedure TSChartFrame.PaintChartMouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  if Assigned(FOnChartMouseUp) then
+    FOnChartMouseUp(Sender, Button, Shift, X, Y);
+end;
+
+end.
+
+
+
+//------ draw current PLs
+      Pen.Color := clBlue;
+      for j:=0 to FRealPLs.Count-1 do
+      with FRealPLs.Items[j] as TPLItem do
+      begin
+        iX := aDrawRect.Left + Round(dXR * (RefPrice-dXMin));
+        iY := aDrawRect.Bottom - Round(dYR * (Yield-dYMin)) - 1;
+
+        if (iX < aDrawRect.Left) or (iX > aDrawRect.Right) or
+           (iY < aDrawRect.Top) or (iY > aDrawRect.Bottom) then Continue;
+
+        MoveTo(iX-2, iY-2);
+        LineTo(iX+3, iY+3);
+        MoveTo(iX-2, iY+2);
+        LineTo(iX+3, iY-3);
+      end;
+
+
+  //---------------------- draw zoomed -----------------------------------
+
+      if FZoomed then
+      begin
+        dXMin := FZoomUnderMin;
+        dXMax := FZoomUnderMax;
+        dYMin := FZoomPLMin;
+        dYMax := FZoomPLMax;
+        dZoomPLMin := 0.0;
+        dZoomPLMax := 0.0;
+        bInZoom := False;
+
+        //선택 그래프의 그래프 영역에서의 최소,최대 값을 구한다.
+        if ListGraphs.Selected <> nil then
+        begin
+          aPLGraph := TPLGraphItem(ListGraphs.Selected.Data);
+          for i := 0 to aPLGraph.Count - 1 do
+          begin
+            if (aPLGraph.Data[i].RefPrice > FZoomUnderMin) and
+              (aPLGraph.Data[i].RefPrice < FZoomUnderMax) then
+              if (aPLGraph.Data[i].Yield < FZoomPLMax) and
+                (aPLGraph.Data[i].Yield > FZoomPLMin) then
+              begin
+                if not(bInZoom) then
+                begin
+                  dZoomPLMin := aPLGraph.Data[i].Yield;
+                  dZoomPLMax := aPLGraph.Data[i].Yield;
+                  bInZoom := True;
+                end;
+                dZoomPLMin := Min(dZoomPLMin , aPLGraph.Data[i].Yield);
+                dZoomPLMax := Max(dZoomPLMax , aPLGraph.Data[i].Yield);
+              end;
+          end;
+          with GridMinMax do
+          begin
+            Cells[1,1]:= Format('%.2f', [FMaturePLItem.PLMax]);
+            Cells[1,2]:= Format('%.2f', [FMaturePLItem.PLMin]);
+            Cells[2,1]:= Format('%.2f', [dZoomPLMax]);
+            Cells[2,2]:= Format('%.2f', [dZoomPLMin]);
+          end
+        end else
+          InitGridMinMax;
+
+
+
+----------------- draw  PL on mature date -----------------------------
+        (*
+      // PL on mature date
+      if CheckDrawMaturePL.Checked then
+      begin
+//        Pen.Color := clBlack;
+        Pen.Color := FMatureColor;
+        Pen.Style := psSolid;
+
+        Pen.Width := FMatureWidth;
+
+        iCnt := 0;
+        with FMaturePLItem do
+        for j:=0 to Count-1 do
+        begin
+          iX := aDrawRect.Left + Round(dXR * (Data[j].RefPrice-dXMin));
+          iY := aDrawRect.Bottom - Round(dYR * (Data[j].Yield-dYMin))-1;
+
+          if (iX < aDrawRect.Left) or (iX > aDrawRect.Right) or
+             (iY < aDrawRect.Top) or (iY > aDrawRect.Bottom) then Continue;
+
+          if iCnt > 0 then
+            LineTo(iX, iY)
+          else
+            MoveTo(iX, iY);
+          Inc(iCnt);
+        end;
+      end;
+      *)
+
+
+
+----------------------------------------------------------------------
+      if (GetCheckedPositionCount = 0) or
+       ((GetCheckedGraphCount = 0) and not(CheckDrawMaturePL.Checked)) then   //Modified by Seo
+    begin
+
+      if GetCheckedPositionCount = 0 then //Modified by Seo
+        stText := '포지션이 없습니다'
+      else
+        stText := '설정된 그래프가 없습니다';
+
+      aSize := TextExtent(stText);
+      TextOut(20, 20, stText);
+
+      InitGridMinMax;
+
+
+    end else
+    begin

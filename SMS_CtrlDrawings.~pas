@@ -1,0 +1,116 @@
+unit SMS_CtrlDrawings;
+
+interface
+
+uses
+  Classes, StdCtrls, Controls, Windows, Graphics, Grids;
+
+
+  procedure GridDrawCell(Grid : TStringGrid; ACol, ARow: Integer;
+                          Rect: TRect; State: TGridDrawState);
+
+
+  procedure PenStyleComboDrawItem(Control : TWinControl; Index : Integer;
+    Rect : TRect; State : TOwnerDrawState);
+
+implementation
+
+uses
+  SMS_Graphics;
+
+
+procedure GridDrawCell(Grid : TStringGrid; ACol, ARow: Integer;
+                          Rect: TRect; State: TGridDrawState);
+const
+  SPACE = 10;
+
+var
+  aAlignment : TAlignment;
+  iX, iY : Integer;
+  aSize : TSize;
+  stText : String;
+begin
+  with Grid.Canvas do
+  begin
+    Font.Name := Grid.Font.Name;
+    Font.Size := Grid.Font.Size;
+    //
+    stText := Grid.Cells[ACol, ARow];
+    if gdFixed in State then
+    begin
+      Brush.Color := FIXED_COLOR;
+      Font.Color := clBlack;
+      aAlignment := taLeftJustify;
+    end else
+    begin
+      if stText = '' then
+       Brush.Color := NODATA_COLOR
+      else
+        Brush.Color := clWhite;
+      Font.Color := clBlack;
+      aAlignment := taRightJustify;
+    end;
+    //-- background
+    FillRect(Rect);
+    //-- text
+    if stText = '' then Exit;
+    //-- calc position
+    aSize := TextExtent(stText);
+    iY := Rect.Top + (Rect.Bottom - Rect.Top - aSize.cy) div 2;
+    iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+    //-- put text
+    case aAlignment of
+      taLeftJustify :  iX := Rect.Left + SPACE;
+      taCenter :       iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+      taRightJustify : iX := Rect.Left + Rect.Right-Rect.Left - SPACE - aSize.cx;
+    end;
+    TextRect(Rect, iX, iY, stText);
+  end;
+end;
+
+
+
+procedure PenStyleComboDrawItem(Control : TWinControl; Index : Integer;
+  Rect : TRect; State : TOwnerDrawState);
+var
+  aCombo : TComboBox;
+  aPenStyle: TPenStyle;
+begin
+  aCombo := Control as TComboBox;
+  aPenStyle := aCombo.Canvas.Pen.Style;
+
+  with aCombo.Canvas do
+  begin
+    Brush.Color := clWhite;
+    Pen.Mode := pmCopy;
+
+    if odSelected in State then
+    begin
+
+      Pen.Color := clBlue;
+      Rectangle(Rect);
+    end else
+      FillRect(Rect);
+
+    Pen.Width := 1;
+    Brush.Color := clWhite;
+    Pen.Color := clBlack;
+
+    case Index of
+      0 : Pen.Style := psSolid;
+      1 : Pen.Style := psDash;
+      2 : Pen.Style := psDot;
+      3 : Pen.Style := psDashDot;
+      4 : Pen.Style := psDashDotDot;
+    end;
+
+    MoveTo(Rect.Left+3, (Rect.Bottom + Rect.Top) div 2);
+    LineTo(Rect.Right-3, (Rect.Bottom + Rect.Top) div 2);
+
+  end;
+
+  aCombo.Canvas.Pen.Style := aPenStyle;
+end;
+
+
+end.

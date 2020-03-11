@@ -1,0 +1,49 @@
+object ConfigKeyDialog: TConfigKeyDialog
+  Left = 232
+  Top = 124
+  Width = 928
+  Height = 480
+  Caption = 'Format Key Values'
+  Color = clBtnFace
+  ParentFont = True
+  OldCreateOrder = False
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object ValueListEditor1: TValueListEditor
+    Left = 16
+    Top = 8
+    Width = 465
+    Height = 297
+    DropDownRows = 12
+    KeyOptions = [keyEdit, keyAdd, keyDelete, keyUnique]
+    TabOrder = 0
+    OnClick = ValueListEditor1Click
+    OnEditButtonClick = ValueListEditor1EditButtonClick
+    ColWidths = (
+      150
+      309)
+  end
+  object Button1: TButton
+    Left = 248
+    Top = 312
+    Width = 75
+    Height = 25
+    Caption = 'Insert Row'
+    TabOrder = 1
+    OnClick = Button1Click
+  end
+  object Button2: TButton
+    Left = 96
+    Top = 312
+    Width = 75
+    Height = 25
+    Caption = 'Button2'
+    ModalResult = 1
+    TabOrder = 2
+  end
+  object OpenDialog1: TOpenDialog
+    Left = 184
+    Top = 192
+  end
+end

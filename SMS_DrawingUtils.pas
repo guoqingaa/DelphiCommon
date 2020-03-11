@@ -1,0 +1,76 @@
+unit SMS_DrawingUtils;
+
+interface
+
+uses
+  SysUtils, Types, Graphics, Classes, StdCtrls, ComCtrls, Grids, Dialogs, Windows;
+
+
+procedure DrawArrow(aCanvas : TCanvas; bUp : Boolean; iX, iY : Integer);
+procedure DrawAlignedTextInRect(aCanvas: TCanvas; aRect: TRect;
+              stText: String; aAlignment: TAlignment = taLeftJustify);
+
+implementation
+
+const
+  ARROW_WING_WIDTH = 4;
+  ARROW_WING_HEIGHT = 4;
+  ARROW_RECT_HEIGHT = 6;
+  ARROW_HIT_RANGE = 2;
+
+procedure DrawAlignedTextInRect(aCanvas: TCanvas; aRect: TRect;
+              stText: String; aAlignment: TAlignment = taLeftJustify);
+var
+  aSize : TSize;
+  iX, iY : Integer;
+begin
+  //-- background
+  with aCanvas do
+  begin
+    FillRect(aRect);
+    //-- text
+    if stText = '' then Exit;
+    //-- calc position
+    aSize := TextExtent(stText);
+    iY := aRect.Top + (aRect.Bottom - aRect.Top - aSize.cy) div 2;
+    iX := aRect.Left + (aRect.Right - aRect.Left - aSize.cx) div 2;
+    //-- put text
+    case aAlignment of
+      taLeftJustify :  iX := aRect.Left + 2;
+      taCenter :       iX := aRect.Left + (aRect.Right - aRect.Left - aSize.cx) div 2;
+      taRightJustify : iX := aRect.Left + aRect.Right - aRect.Left - 2 - aSize.cx;
+    end;
+    TextRect(aRect, iX, iY, stText);
+  end;
+end;
+
+
+procedure DrawArrow(aCanvas : TCanvas; bUp : Boolean; iX, iY : Integer);
+begin
+  with aCanvas do
+  begin
+    if bUp then
+    begin
+      aCanvas.Polyline([Point(iX, iY), Point(iX-ARROW_WING_WIDTH, iY + ARROW_WING_HEIGHT),
+        Point(iX+ARROW_WING_WIDTH, iY+ARROW_WING_HEIGHT), Point(iX, iY)]);
+      aCanvas.Polyline([Point(iX-(ARROW_WING_WIDTH div 2),iY+ARROW_WING_HEIGHT),
+        Point(iX-(ARROW_WING_WIDTH div 2), iY+ARROW_WING_HEIGHT+ARROW_RECT_HEIGHT),
+        Point(iX+(ARROW_WING_WIDTH div 2), iY+ARROW_WING_HEIGHT+ARROW_RECT_HEIGHT),
+        Point(iX+(ARROW_WING_WIDTH div 2), iY+ARROW_WING_HEIGHT)]);
+
+    end else
+    begin
+      aCanvas.Polyline([Point(iX, iY), Point(iX-ARROW_WING_WIDTH, iY - ARROW_WING_HEIGHT),
+        Point(iX+ARROW_WING_WIDTH, iY-ARROW_WING_HEIGHT), Point(iX, iY)]);
+      aCanvas.Polyline([Point(iX-(ARROW_WING_WIDTH div 2),iY-ARROW_WING_HEIGHT-ARROW_RECT_HEIGHT),
+        Point(iX-(ARROW_WING_WIDTH div 2), iY-ARROW_WING_HEIGHT),
+        Point(iX+(ARROW_WING_WIDTH div 2), iY-ARROW_WING_HEIGHT),
+        Point(iX+(ARROW_WING_WIDTH div 2), iY-ARROW_WING_HEIGHT-ARROW_RECT_HEIGHT),
+        Point(iX-(ARROW_WING_WIDTH div 2),iY-ARROW_WING_HEIGHT-ARROW_RECT_HEIGHT)]);
+    end;
+  end;
+
+end;
+
+
+end.

@@ -1,0 +1,598 @@
+unit SMS_Files;
+
+interface
+
+uses
+  Windows, Forms, Classes, ShlObj, FileCtrl, Math, Registry;
+
+const
+  LINE_FEED = #13#10;
+
+  {
+  IncludeTrailingPathDelimiter
+  }
+  function GetFilesInDirectory(stDirectory, stExtension: String;
+    aStrings: TStrings): Integer;
+
+  function GetFilesInDirectory2(stDirectory, stExtName: String;
+    aStrings: TStrings): Integer;  //recursive
+
+  function GetFilesInDirectory3(aStrings: TStringList; stDirectory: String;
+     stFileName: String = '*'; stExtension: String = '.*'): Integer;
+
+
+  function GetAllFilesInDirectory(stDirectory: String;
+    aStrings: TStringList): Integer; //recursive
+
+
+  //function GetDirFilesInDirectory(stDirectory: String;
+  //  aStrings: TStringList): Integer; overload;
+  function GetDirFilesInDirectory(stDirectory: String;
+    aStrings: TStrings): Integer; overload;
+
+  procedure CopyFile(Source, Target : String);
+
+  procedure GetLinesInFile(stFile: String; aLines: TStringList);
+
+  function GetFileDateTime(const stFile : String): TDateTime;
+  function GetDirLastModifiedTime(stPath : String): TDateTime;
+  function AttachToFileName(const stFullFileName, stAttachName: String): String;
+
+  procedure GetRecentDirectories(aDirectories : TStrings; iMaxCount: Integer = 30);
+  procedure GetRecentDirsFromRegistry(aDirectories : TStrings; iMaxCount: Integer = 30);
+
+  function SlashSep(const Path, S: String): String;
+  procedure RegisterRecentDirList(stDir : String);
+
+implementation
+
+uses SysUtils, SMS_Systems;
+
+const
+  REG_KEY_PATH = '\SOFTWARE\';
+
+var
+  gRecentDirList : TStringList;
+
+function SlashSep(const Path, S: String): String;
+begin
+  if AnsiLastChar(Path)^ <> '\' then
+    Result := Path + '\' + S
+  else
+    Result := Path + S;
+end;
+
+procedure GetRecentDirsFromRegistry(aDirectories : TStrings; iMaxCount: Integer = 30);
+var
+  i : Integer;
+begin
+  aDirectories.Assign(gRecentDirList);
+  //
+  for i := aDirectories.Count-1 downto 0 do
+    if i > iMaxCount then
+      aDirectories.Delete(i)
+    else
+      Break;
+end;
+
+procedure GetRecentDirectories(aDirectories : TStrings; iMaxCount : Integer);
+var
+  aLinkFiles : TStringList;
+  i{, j} : Integer;
+  szRecPath : PChar;
+  stLinkFile : String;
+  //dTime, dTime2 : TDateTime;
+  bInsert : Boolean;
+begin
+  aDirectories.Clear;
+  //
+  szRecPath := StrAlloc(MAX_PATH);
+  aLinkFiles := TStringList.Create;
+  try
+    FillChar(szRecPath^, MAX_PATH, 0);
+    if SHGetSpecialFolderPath(0, szRecPath, $0008, false) then
+    begin
+      GetFilesInDirectory(szRecPath, 'lnk', aLinkFiles);//. as TStringList);
+      for i := 0 to Min(aLinkFiles.Count-1, iMaxCount-1) do
+      begin
+        stLinkFile := GetLinkFileToExecute(aLinkFiles[i]);
+        //
+        if DirectoryExists(stLinkFile) then
+        begin
+          //stLinkFile := SlashSep(stLinkFile, '');
+          bInsert := False;
+          (*
+          dTime := GetDirLastModifiedTime(stLinkFile);
+
+          for j := 0 to aDirectories.Count-1 do
+          begin
+            dTime2 := GetDirLastModifiedTime(aDirectories[j]);
+            //
+            if dTime > dTime2 then
+            begin
+              aDirectories.Insert(j, stLinkFile);
+              bInsert := True;
+              Break;
+            end;
+          end;
+          *)
+          if not bInsert then
+            aDirectories.Add(stLinkFile);
+          //
+
+          if aDirectories.Count > iMaxCount then
+            aDirectories.Delete(aDirectories.Count-1);
+
+        end;
+      end;
+    end;
+
+  finally
+    StrDispose(szRecPath);
+    aLinkFiles.Free;
+  end;
+end;
+
+function AttachToFileName(const stFullFileName, stAttachName: String): String;
+var
+  stExt : String;
+begin
+  stExt := ExtractFileExt(stFullFileName);
+  Result := ChangeFileExt(stFullFileName, '') + stAttachName + stExt;
+end;
+
+function GetFileDateTime(const stFile : String): TDateTime;
+var
+  iHandle : THandle;
+  iDate : Integer;
+begin
+  Result := -1;
+  //
+  if FileExists(stFile) then
+  begin
+    iHandle := FileOpen(stFile, fmOpenRead);
+
+    try
+      iDate := FileGetDate(iHandle);
+      //
+      if iDate > 0 then
+        Result := FileDateToDateTime(iDate);
+    finally
+      FileClose(iHandle);
+    end;
+
+  end;
+end;
+
+function GetDirLastModifiedTime(stPath : String): TDateTime;
+var
+  sr : TSearchRec;
+begin
+  Result := 0;
+  if FindFirst(stPath, faDirectory, sr) = 0 then
+   try
+     Result := FileDateToDateTime(sr.Time) ;
+
+     {
+     FileTimeToSystemTime(sr.FindData.ftCreationTime, creationTimeSystem) ;
+     with creationTimeSystem do
+       creationTime := EncodeDateTime(wYear, wMonth, wDay, wHour, wMinute, wSecond, wMilliseconds) ;
+
+     FileTimeToSystemTime(sr.FindData.ftLastAccessTime, lastAccessTimeSystem) ;
+     with lastAccessTimeSystem do
+       lastAccessTime := EncodeDateTime(wYear, wMonth, wDay, wHour, wMinute, wSecond, wMilliseconds) ;
+
+     FileTimeToSystemTime(sr.FindData.ftLastWriteTime, lastWriteTimeSystem) ;
+     with lastWriteTimeSystem do
+       lastWriteTime := EncodeDateTime(wYear, wMonth, wDay, wHour, wMinute, wSecond, wMilliseconds) ;
+
+     ShowMessage(Format('Date Time Info for "%s"', [path])) ;
+     ShowMessage(Format('Creation Time: "%s"', [DateTimeToStr(creationTime)])) ;
+     ShowMessage(Format('Last Access Time: "%s"', [DateTimeToStr(lastAccessTime)])) ;
+     ShowMessage(Format('Last Write Time: "%s"', [DateTimeToStr(lastWriteTime)])) ;
+     ShowMessage(Format('Last Modified Time: "%s"', [DateTimeToStr(modifiedTime)])) ;
+     }
+   finally
+    FindClose(sr) ;
+   end;
+end;
+
+
+procedure GetLinesInFile(stFile: String; aLines: TStringList);
+const
+  BUFFER_SIZE = 1000;
+var
+  aFileStream : TFileStream;
+  iProcessPointer : Integer;
+
+  aReadBuffer : Array[0..BUFFER_SIZE-1] of Char;
+  aProcessBuffer : array[0..(BUFFER_SIZE*2)-1] of Char;
+  aLineBuffer : array[0..BUFFER_SIZE-1] of Char;
+  stLine : String;
+
+  procedure ProcessReadBuffer;
+  var
+    i, {iStart,} iLength : Integer;
+    pFind, pPrevFind, pFirstFind : PChar;
+    aParsing : TStringList;
+  begin
+    CopyMemory(@aProcessBuffer[iProcessPointer+1], @aReadBuffer[0], BUFFER_SIZE);
+    //gLog.Add(lkDebug, ClassName, 'ProcessBuffer', aProcessBuffer);
+
+    iProcessPointer := iProcessPointer + BUFFER_SIZE;
+    //iStart := 0;
+
+    pFind := LineStart(aProcessBuffer, @aProcessBuffer[iProcessPointer]);
+    pPrevFind := pFind;
+    pFirstFind := pFind;
+
+    aParsing := TStringList.Create;
+
+    try
+      //
+      while pFind <> aProcessBuffer do
+      begin
+        pFind := LineStart(aProcessBuffer, pFind-1);
+        CopyMemory(@aLineBuffer, pFind, pPrevFind-pFind-2);
+        //
+        stLine := aLineBuffer;
+        aParsing.Insert(0, stLine);
+
+        pPrevFind := pFind;
+      end;
+      //
+      for i := 0 to aParsing.Count-1 do
+        aLines.Add(aParsing[i]);
+      //
+      iLength := @aProcessBuffer[iProcessPointer]-pFirstFind+2;
+      MoveMemory(@aProcessBuffer[0], pFirstFind, iLength);
+      iProcessPointer := iLength-2;
+      //
+    finally
+      aParsing.Free;
+    end;
+
+    //
+
+  end;
+begin
+  aFileStream := TFileStream.Create(stFile, fmOpenRead or fmShareDenyNone);
+
+  try
+    iProcessPointer := -1;
+
+    while aFileStream.Position < aFileStream.Size do
+    begin
+      aFileStream.Read(aReadBuffer, BUFFER_SIZE);
+      //
+      ProcessReadBuffer;
+    end;
+
+  finally
+    aFileStream.Free;
+  end;
+end;
+
+{
+function GetDirFilesInDirectory(stDirectory: String;
+    aStrings: TStringList): Integer;
+var
+  stQuery : String;
+  sr : TSearchRec;
+begin
+  Result := GetDirFilesInDirectory(stDirectory, aStrings.)
+  Result := 0;
+  //
+  if aStrings = nil then Exit;
+  //
+  if not DirectoryExists(stDirectory) then Exit;
+  //
+  stQuery := stDirectory + '\'+'*.*';
+  aStrings.Clear;
+  if FindFirst(stQuery, faAnyFile or faDirectory, sr) = 0 then
+  begin
+    aStrings.Add(sr.Name);
+    //
+    while FindNext(sr) = 0 do
+    begin
+      aStrings.Add(sr.Name);
+    end;
+  end;
+  FindClose(sr);
+
+  Result := aStrings.Count;
+
+end;
+}
+
+function GetDirFilesInDirectory(stDirectory: String;
+    aStrings: TStrings): Integer; overload;
+var
+  stQuery : String;
+  sr : TSearchRec;
+begin
+  Result := 0;
+  //
+  if aStrings = nil then Exit;
+  //
+  if not DirectoryExists(stDirectory) then Exit;
+  //
+  stQuery := stDirectory + '\'+'*.*';
+  aStrings.Clear;
+  if FindFirst(stQuery, faAnyFile or faDirectory, sr) = 0 then
+  begin
+    aStrings.Add(sr.Name);
+    //
+    while FindNext(sr) = 0 do
+    begin
+      aStrings.Add(sr.Name);
+    end;
+  end;
+  FindClose(sr);
+
+  Result := aStrings.Count;
+end;
+
+
+function GetFilesInDirectory(stDirectory, stExtension: String;
+    aStrings: TStrings): Integer;
+var
+  stQuery : String;
+  sr : TSearchRec;
+begin
+  Result := 0;
+  //
+  if aStrings = nil then Exit;
+  //
+  if not DirectoryExists(stDirectory) then Exit;
+  //
+  stQuery := SlashSep(stDirectory, '*.' + stExtension);
+  //stQuery := stDirectory + '*.' + stExtension;
+  aStrings.Clear;
+  if FindFirst(stQuery, faAnyFile, sr) = 0 then
+  begin
+    aStrings.Add(stDirectory + '\'+sr.Name);
+    //
+    while FindNext(sr) = 0 do
+    begin
+      aStrings.Add(stDirectory + '\'+sr.Name);
+    end;
+  end;
+  FindClose(sr);
+
+  Result := aStrings.Count;
+
+end;
+
+function GetFilesInDirectory3(aStrings: TStringList; stDirectory: String;
+     stFileName: String; stExtension: String): Integer;
+var
+  stQuery : String;
+  sr : TSearchRec;
+begin
+  Result := 0;
+  //
+  if aStrings = nil then Exit;
+  //
+  if not DirectoryExists(stDirectory) then Exit;
+  //
+  stQuery := stDirectory + stFileName + stExtension;
+  aStrings.Clear;
+  if FindFirst(stQuery, faAnyFile, sr) = 0 then
+  begin
+    aStrings.Add(stDirectory + '\'+sr.Name);
+    //
+    while FindNext(sr) = 0 do
+    begin
+      aStrings.Add(stDirectory + '\'+sr.Name);
+    end;
+  end;
+  FindClose(sr);
+
+  Result := aStrings.Count;
+end;
+
+function GetAllFilesInDirectory(stDirectory: String; aStrings: TStringList): Integer;
+var
+  iRet : Integer;
+  stQuery : String;
+  sr : TSearchRec;
+  //aTmpStrings : TStringList;
+begin
+
+  Result := 0;
+  //
+  if aStrings = nil then Exit;
+  //
+  if not DirectoryExists(stDirectory) then Exit;
+  //
+  stQuery := stDirectory + '*.*';// + stFileName;
+
+  iRet := FindFirst(stQuery, faAnyFile or faDirectory, sr);
+
+  while (iRet=0) do
+  begin
+
+    try
+      if (sr.Name = '.') or (sr.Name = '..') then continue;
+      //
+      if (sr.Attr = faDirectory) then
+      begin
+        GetAllFilesInDirectory(stDirectory + sr.Name+'\', aStrings);
+
+      end else
+      begin
+
+
+        aStrings.Add(stDirectory + sr.Name);
+        //
+      end;
+      //
+    finally
+      iRet := FindNext(sr);
+    end;
+  end;
+
+
+  FindClose(sr);
+
+  Result := aStrings.Count;
+end;
+
+
+function GetFilesInDirectory2(stDirectory, stExtName: String;
+    aStrings: TStrings): Integer;
+var
+  iRet : Integer;
+  stQuery : String;
+  sr : TSearchRec;
+  //aTmpStrings : TStringList;
+begin
+
+  Result := 0;
+  //
+  if aStrings = nil then Exit;
+  //
+  stDirectory := IncludeTrailingPathDelimiter(stDirectory);
+  if not DirectoryExists(stDirectory) then Exit;
+  //
+  stQuery := stDirectory + '*.*';// + stFileName;
+
+  iRet := FindFirst(stQuery, faAnyFile or faDirectory, sr);
+  //
+  while (iRet=0) do
+  begin
+
+    try
+      if (sr.Name = '.') or (sr.Name = '..') then continue;
+      //
+      if (sr.Attr = faDirectory) then
+      begin
+        GetFilesInDirectory2(stDirectory + sr.Name+'\', stExtName, aStrings);
+
+      end else
+      begin
+
+        //if sr.Name = stFileName then
+        if Pos(stExtName, ExtractFileExt(sr.Name)) > 0 then
+          aStrings.Add(stDirectory + sr.Name);
+        //
+      end;
+      //
+    finally
+      iRet := FindNext(sr);
+    end;
+  end;
+
+
+  FindClose(sr);
+
+  Result := aStrings.Count;
+
+end;
+
+procedure CopyFile(Source, Target : String);
+var
+  aSourceStream, aTargetStream : TFileStream;
+  stTargetDir : String;
+begin
+  if not FileExists(Source) then Exit;
+  //
+  stTargetDir := ExtractFilePath(Target);
+  //
+  if not DirectoryExists(stTargetDir) then
+    MkDir(stTargetDir);
+  //
+  aSourceStream := TFileStream.Create(Source, fmOpenRead or fmShareDenyNone);
+
+  try
+    aTargetStream := TFileStream.Create(Target, fmCreate);
+    try
+      aTargetStream.CopyFrom(aSourceStream, aSourceStream.Size);
+    finally
+      aTargetStream.Free;
+    end;
+  finally
+    aSourceStream.Free;
+  end;
+end;
+
+procedure RegisterRecentDirList(stDir : String);
+begin
+  if not DirectoryExists(stDir) then Exit;
+  //
+  stDir := SlashSep(stDir, '');
+  if gRecentDirList.IndexOf(stDir) < 0 then
+    gRecentDirList.Insert(0, stDir);
+end;
+
+
+procedure LoadRecentFileDirList;//(const stAppName: String);
+var
+  aRegistry : TRegistry;
+  stAppName : String;
+begin
+  stAppName := ExtractFileName(Application.ExeName);
+  gRecentDirList.Clear;
+  //
+  aRegistry := TRegistry.Create;
+
+  try
+    aRegistry.RootKey := HKEY_CURRENT_USER;
+    //
+    if not aRegistry.KeyExists(REG_KEY_PATH + stAppName) then Exit;
+    //
+    if aRegistry.OpenKey(REG_KEY_PATH + stAppName, False) then
+    begin
+      gRecentDirList.DelimitedText := aRegistry.ReadString('recent_dirs');
+    end;
+
+  finally
+    aRegistry.Free;
+  end;
+end;
+
+procedure SaveRecentFileDirList;
+var
+  aRegistry : TRegistry;
+  stAppName : String;
+begin
+  stAppName := ExtractFileName(Application.ExeName);
+  aRegistry := TRegistry.Create;
+
+  try
+    aRegistry.RootKey := HKEY_CURRENT_USER;
+    //
+    if not aRegistry.KeyExists(REG_KEY_PATH + stAppName) then
+      if not aRegistry.CreateKey(REG_KEY_PATH + stAppName) then Exit;
+    //
+    if aRegistry.OpenKey(REG_KEY_PATH + stAppName, False) then
+    begin
+      aRegistry.WriteString('recent_dirs', gRecentDirList.DelimitedText);
+    end;
+  finally
+    aRegistry.Free;
+  end;
+
+end;
+
+
+
+initialization
+  gRecentDirList := TStringList.Create;
+  gRecentDirList.Delimiter := ';';
+  LoadRecentFileDirList;
+
+finalization
+  try
+    SaveRecentFileDirList;
+  except
+  end;
+  gRecentDirList.Free;
+
+
+end.
+
+
+
+

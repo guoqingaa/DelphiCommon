@@ -1,0 +1,457 @@
+unit SMS_Systems;
+
+interface
+
+uses
+  SysUtils, Classes, Windows, SMS_Consts, ExtCtrls, WinSock, ShlObj, SMS_Files, ComObj, ActiveX, CommCtrl;
+
+const
+    wsMinMeasurementInterval=250; {minimum amount of time that must have elapsed to calculate CPU usage, miliseconds. If time elapsed is less than this, previous result is returned, or zero, if there is no previous result.}
+
+type
+    TCPUUsageData=record
+        PID,Handle:cardinal;
+        oldUser,oldKernel:Int64;
+        LastUpdateTime:cardinal;
+        LastUsage:single;
+        //Last result of wsGetCpuUsage is saved here
+        Tag:cardinal;
+        //Use it for anythin you like, not modified by this unit
+    end;
+    PCPUUsageData=^TCPUUsageData;
+
+
+  function ExistsAppParam(stParam: String): Boolean;
+
+  function wsCreateUsageCounter(PID:cardinal):PCPUUsageData;
+  procedure wsDestroyUsageCounter(aCounter:PCPUUsageData);
+  function wsGetCpuUsage(aCounter:PCPUUsageData):single;
+
+  function GetMemoryShortStatus: String;
+  function GetMemTotalAddress: String;
+
+  procedure AppendEnvPath(stPath: String);
+  function GetFileVersion(stPath: String): String;
+  //
+  function LocalHostAddress: String;
+
+  function GetLinkFileToExecute(stFileName: String): String;
+type
+
+  TCPUTime = record
+    LastCPU, LastSysCPU, LastUserCPU : ULARGE_INTEGER;
+  end;
+
+  TCPUMonitor = class
+  private
+
+    FHandle : THandle;
+    NumProcessors : Integer;
+
+    FCPUTimes : array of TCPUTime;
+    FTimer : TTimer;
+    FCheckLength : Integer;    //계산 대상 데이터.
+    FCheckInterval : Integer;  //timer 가 호출되는 interval (second)
+    FOnCalculated: TNotifyEvent;
+    procedure TimerProc(Sender: TObject);
+    function GetTimeCount: Integer;
+  public
+    CPUUsage : Double;
+    //
+    procedure Start(iProcessID, iCheckLength, iCheckInterval : Integer);
+    // iCheckInterval : 계산하는 Interval. 단위:초.
+    //
+
+    destructor Destroy; override;
+
+    property TimeCount : Integer read GetTimeCount;
+    property OnCalculated : TNotifyEvent read FOnCalculated write FOnCalculated;
+
+  end;
+
+implementation
+
+type
+  PShellLinkInfoStruct = ^TShellLinkInfoStruct;
+  TShellLinkInfoStruct = record
+    FullPathAndNameOfLinkFile: array[0..MAX_PATH] of Char;
+    FullPathAndNameOfFileToExecute: array[0..MAX_PATH] of Char;
+    ParamStringsOfFileToExecute: array[0..MAX_PATH] of Char;
+    FullPathAndNameOfWorkingDirectroy: array[0..MAX_PATH] of Char;
+    Description: array[0..MAX_PATH] of Char;
+    FullPathAndNameOfFileContiningIcon: array[0..MAX_PATH] of Char;
+    IconIndex: Integer;
+    HotKey: Word;
+    ShowCommand: Integer;
+    FindData: TWIN32FINDDATA;
+  end;
+
+
+procedure GetLinkInfo(lpShellLinkInfoStruct: PShellLinkInfoStruct);
+var
+  ShellLink: IShellLink;
+  PersistFile: IPersistFile;
+  AnObj: IUnknown;
+begin
+  // access to the two interfaces of the object
+  AnObj       := CreateComObject(CLSID_ShellLink);
+  ShellLink   := AnObj as IShellLink;
+  PersistFile := AnObj as IPersistFile;
+
+  // Opens the specified file and initializes an object from the file contents.
+  PersistFile.Load(PWChar(WideString(lpShellLinkInfoStruct^.FullPathAndNameOfLinkFile)), 0);
+  with ShellLink do
+  begin
+    // Retrieves the path and file name of a Shell link object.
+    GetPath(lpShellLinkInfoStruct^.FullPathAndNameOfFileToExecute,
+      SizeOf(lpShellLinkInfoStruct^.FullPathAndNameOfLinkFile),
+      lpShellLinkInfoStruct^.FindData,
+      SLGP_UNCPRIORITY);
+
+    // Retrieves the description string for a Shell link object.
+    GetDescription(lpShellLinkInfoStruct^.Description,
+      SizeOf(lpShellLinkInfoStruct^.Description));
+
+    // Retrieves the command-line arguments associated with a Shell link object.
+    GetArguments(lpShellLinkInfoStruct^.ParamStringsOfFileToExecute,
+      SizeOf(lpShellLinkInfoStruct^.ParamStringsOfFileToExecute));
+
+    // Retrieves the name of the working directory for a Shell link object.
+    GetWorkingDirectory(lpShellLinkInfoStruct^.FullPathAndNameOfWorkingDirectroy,
+      SizeOf(lpShellLinkInfoStruct^.FullPathAndNameOfWorkingDirectroy));
+
+    // Retrieves the location (path and index) of the icon for a Shell link object.
+    GetIconLocation(lpShellLinkInfoStruct^.FullPathAndNameOfFileContiningIcon,
+      SizeOf(lpShellLinkInfoStruct^.FullPathAndNameOfFileContiningIcon),
+      lpShellLinkInfoStruct^.IconIndex);
+
+    // Retrieves the hot key for a Shell link object.
+    GetHotKey(lpShellLinkInfoStruct^.HotKey);
+
+    // Retrieves the show (SW_) command for a Shell link object.
+    GetShowCmd(lpShellLinkInfoStruct^.ShowCommand);
+  end;
+
+end;
+
+function GetLinkFileToExecute(stFileName: String): String;
+var
+  LinkInfo: TShellLinkInfoStruct;
+  //s: string;
+begin
+  Result := '';
+  FillChar(LinkInfo, SizeOf(LinkInfo), #0);
+  StrPCopy(LinkInfo.FullPathAndNameOfLinkFile, stFileName);
+  GetLinkInfo(@LinkInfo);
+  Result := LinkInfo.FullPathAndNameOfFileToExecute;
+end;
+
+function LocalHostAddress: String;
+var
+  name: array[0..255] of Ansichar;
+  h: PHostEnt;
+  stName : AnsiString;
+  iRet : Integer;
+  aWSAInitData : TWSADATA;
+begin
+  Result := '';
+  //
+  if WSAStartup($101, aWSAInitData) <> 0 then Exit;
+  //
+  iRet := gethostname(name, sizeof(name));
+  if iRet <> socket_error then
+  begin
+    stName := name;
+    //
+    if stName[1] in ['0'..'9'] then
+    begin
+      if inet_addr(pansichar(stName)) <> INADDR_NONE then
+        Result := stName;
+    end else
+    begin
+      h := gethostbyname(pansichar(stName));
+      if h <> nil then
+        with h^ do
+        Result := format('%d.%d.%d.%d', [ord(h_addr^[0]), ord(h_addr^[1]),
+      		  ord(h_addr^[2]), ord(h_addr^[3])]);
+    end;
+  end;
+
+end;
+
+function ExistsAppParam(stParam: String): Boolean;
+var
+  i : Integer;
+begin
+  Result := False;
+  for i := 1 to ParamCount do
+  begin
+    //ShowMessage(ParamStr(i));
+    if CompareStr(Trim(UpperCase(ParamStr(i))), Trim(UpperCase(stParam)))=0 then
+    begin
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+
+
+function GetFileVersion(stPath: String): String;
+var
+  Size, Size2: DWord;
+  Pt, Pt2: Pointer;
+begin
+  Size := GetFileVersionInfoSize(PChar(stPath), Size2);
+  if Size > 0 then begin
+    GetMem(Pt, Size);
+    try
+      GetFileVersionInfo(PChar(stPath), 0, Size, Pt);
+      VerQueryValue (Pt, '\', Pt2, Size2);
+      with TVSFixedFileInfo(Pt2^) do begin
+        Result := Format('%d.%d.%d.%d', [HiWord(dwFileVersionMS),
+                                         LoWord(dwFileVersionMS),
+                                         HiWord(dwFileVersionLS),
+                                         LoWord(dwFileVersionLS)]);
+      end;
+    finally
+      FreeMem(Pt);
+    end;
+  end;
+end;
+
+
+procedure AppendEnvPath(stPath: String);
+var
+  szEnv : array[0..20000] of Char;
+  szCat : array[0..20000] of Char;
+begin
+  GetEnvironmentVariable('path', szEnv, 20000);
+
+  StrPCopy(szCat, ';');
+  StrCat(szEnv, szCat);
+  //StrCat(szEnv, PChar(';'));
+
+  StrCat(szEnv, PChar(stPath));
+
+  SetEnvironmentVariable('path', szEnv);
+
+end;
+
+function GetMemoryShortStatus: String;
+var
+  aHeapStatus : THeapStatus;
+begin
+  aHeapStatus := GetHeapStatus;
+
+  Result := Format('TotalAddrSpace: %.0nM /' +
+            'TotalUncommitted: %.0nM /' +
+            'TotalCommitted: %.0nM /' +
+            'TotalAllocated: %.0nM /' +
+            'TotalFree: %.0nM /',
+
+
+    [aHeapStatus.TotalAddrSpace/MILLION, aHeapStatus.TotalUncommitted/MILLION,
+      aHeapStatus.TotalCommitted/MILLION, aHeapStatus.TotalAllocated/MILLION,
+      aHeapStatus.TotalFree/MILLION]);
+end;
+
+function GetMemTotalAddress: String;
+var
+  aHeapStatus : THeapStatus;
+begin
+  aHeapStatus := GetHeapStatus;
+
+  Result := Format('TotalAddrSpace: %.0nM', [aHeapStatus.TotalAddrSpace/MILLION]);
+end;
+
+
+function wsCreateUsageCounter(PID:cardinal):PCPUUsageData;
+var
+    p:PCPUUsageData;
+    mCreationTime,mExitTime,mKernelTime, mUserTime:_FILETIME;
+    h:cardinal;
+begin
+    result:=nil;
+    //We need a handle with PROCESS_QUERY_INFORMATION privileges
+    h:=OpenProcess(PROCESS_QUERY_INFORMATION,false,PID);
+    if h=0 then exit;
+    new(p);
+    p.PID:=PID;
+    p.Handle:=h;
+    p.LastUpdateTime:=GetTickCount;
+    p.LastUsage:=0;
+    if GetProcessTimes(p.Handle, mCreationTime, mExitTime, mKernelTime, mUserTime) then begin
+        //convert _FILETIME to Int64
+        p.oldKernel:=int64(mKernelTime.dwLowDateTime or (mKernelTime.dwHighDateTime shr 32));
+        p.oldUser:=int64(mUserTime.dwLowDateTime or (mUserTime.dwHighDateTime shr 32));
+        Result:=p;
+    end else begin
+        dispose(p);
+    end;
+end;
+
+procedure wsDestroyUsageCounter(aCounter:PCPUUsageData);
+begin
+    CloseHandle(aCounter.Handle);
+    dispose(aCounter);
+end;
+
+function wsGetCpuUsage(aCounter:PCPUUsageData):single;
+var
+    mCreationTime,mExitTime,mKernelTime, mUserTime:_FILETIME;
+    DeltaMs,ThisTime:cardinal;
+    mKernel,mUser,mDelta:int64;
+    //StartTick, Freq, EndTick : Int64;
+begin
+    result:=aCounter.LastUsage;
+
+    //QueryPerformanceCounter(StartTick);
+    //QueryPerformanceFrequency(Freq);
+    ThisTime:=GetTickCount; //Get the time elapsed since last query
+    //ThisTime := Round(StartTick/FReq*1000);
+    //QueryPerformanceCounter(EndTick);
+
+    DeltaMs:=ThisTime-aCounter.LastUpdateTime;
+    if DeltaMs < wsMinMeasurementInterval then exit;
+ aCounter.LastUpdateTime:=ThisTime;
+
+    GetProcessTimes(aCounter.Handle,mCreationTime, mExitTime, mKernelTime, mUserTime);
+    //convert _FILETIME to Int64.
+    mKernel:=int64(mKernelTime.dwLowDateTime or (mKernelTime.dwHighDateTime shr 32));
+    mUser:=int64(mUserTime.dwLowDateTime or (mUserTime.dwHighDateTime shr 32));
+    //get the delta
+    mDelta:=mUser+mKernel-aCounter.oldUser-aCounter.oldKernel;
+
+    aCounter.oldUser:=mUser;
+    aCounter.oldKernel:=mKernel;
+
+    Result:=(mDelta/DeltaMs)/100;
+    //mDelta is in units of 100 nanoseconds, so…
+
+    aCounter.LastUsage:=Result;
+    //just in case you want to use it later, too
+end;
+
+
+{ TCPUChecker }
+
+
+destructor TCPUMonitor.Destroy;
+begin
+  if FTimer <> nil then
+    FTimer.Free;
+  //
+  if FHandle > 0 then
+    CloseHandle(FHandle);
+  //
+  FCPUTimes := nil;
+
+
+  inherited;
+end;
+
+
+function TCPUMonitor.GetTimeCount: Integer;
+begin
+  Result := Length(FCPUTimes);
+end;
+
+procedure TCPUMonitor.Start(iProcessID, iCheckLength, iCheckInterval : Integer);
+var
+  sysInfo: SYSTEM_INFO;
+  ftime, fsys, fuser: FILETIME;
+  //now, sys, user: ULARGE_INTEGER;
+  //percent: Double;
+  //id : Integer;
+begin
+  FCheckLength := iCheckLength;
+  FCheckInterval := iCheckInterval;
+  //
+  if FHandle > 0 then CloseHandle(FHandle);
+
+  if iProcessID < 0 then
+    iProcessID := GetCurrentProcessId;
+
+  FHandle := OpenProcess(PROCESS_QUERY_INFORMATION,false, iProcessID);
+  //
+  //
+  if FHandle <= 0 then Exit;
+  //
+  if FTimer = nil then
+  begin
+    FTimer := TTimer.Create(nil);
+    FTimer.OnTimer := TimerProc;
+    FTimer.Enabled := True;
+  end;
+  FTimer.Interval := iCheckInterval * 1000;
+  //
+  GetSystemInfo(sysInfo);
+  NumProcessors := sysInfo.dwNumberOfProcessors;
+  //
+  GetSystemTimeAsFileTime(ftime);
+  //
+  FCPUTimes := nil;
+  //
+  SetLength(FCPUTimes, 1);
+
+  FCPUTimes[0].LastCPU := ULARGE_INTEGER(ftime);
+  //
+  GetProcessTimes(FHandle, ftime, ftime, fsys, fuser);
+        //lastSysCPU := ULARGE_INTEGER(fsys);
+        //lastSysCPU := ULARGE_INTEGER(fsys.dwLowDateTime or (fsys.dwHighDateTime shr 32));
+  CopyMemory(@FCPUTimes[0].LastSysCPU, @fsys, SizeOf(FILETIME));
+       //lastUserCPU := ULARGE_INTEGER(fuser);
+  CopyMemory(@FCPUTimes[0].LastUserCPU, @fuser, SizeOf(FILETIME));
+
+end;
+
+
+procedure TCPUMonitor.TimerProc(Sender: TObject);
+var
+  //sysInfo: SYSTEM_INFO;
+  ftime, fsys, fuser: FILETIME;
+  now, sys, user: ULARGE_INTEGER;
+  percent: Double;
+  aFirstCPUTime : TCPUTime;
+  iCount: Integer;
+begin
+  //
+  GetSystemTimeAsFileTime(ftime);
+  now := ULARGE_INTEGER(ftime);
+  //
+  GetProcessTimes(FHandle, ftime, ftime, fsys, fuser);
+  //lastSysCPU := ULARGE_INTEGER(fsys);
+  //lastUserCPU := ULARGE_INTEGER(fuser);
+  CopyMemory(@Sys, @fsys, SizeOf(FILETIME));
+  CopyMemory(@User, @fuser, SizeOf(FILETIME));
+  //
+  if Length(FCPUTimes) > 0 then
+  begin
+    aFirstCPUTime := FCPUTimes[0];
+
+    percent := (sys.QuadPart - aFirstCPUTime.LastSysCPU.QuadPart) +
+      (user.QuadPart - aFirstCPUTime.LastUserCPU.QuadPart);
+    percent := percent / (now.QuadPart - aFirstCPUTime.LastCPU.QuadPart);
+    percent := percent / NumProcessors;
+  end;
+  //
+  SetLength(FCPUTimes, Length(FCPUTimes)+1);
+  FCPUTimes[Length(FCPUTimes)-1].LastCPU := Now;
+  FCPUTimes[Length(FCPUTimes)-1].LastUserCPU := user;
+  FCPUTimes[Length(FCPUTimes)-1].LastSysCPU := sys;
+  //
+  iCount := FCheckLength div FCheckInterval;
+  if Length(FCPUTimes) > iCount then
+  begin
+    MoveMemory(@FCPUTimes[0], @FCPUTimes[Length(FCPUTimes)-iCount],
+      iCount*SizeOf(TCPUTime));
+    SetLength(FCPUTimes, iCount);
+  end;
+  //
+  CPUUsage :=  percent * 100;
+  if Assigned(FOnCalculated) then
+    FOnCalculated(Self);
+
+end;
+
+end.

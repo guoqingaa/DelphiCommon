@@ -1,0 +1,129 @@
+unit SMS_Excels;
+
+interface
+
+uses
+   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ComCtrls, Excel_TLB, ComObj;
+
+
+type
+
+  TExcelParser = class
+  private
+    FApplication : IDispatch;
+    FExcelApplication : ExcelApplication;
+
+    FFilePath: String;
+    FWorkSheetName: String;
+    FIndexCol: Integer;
+    FStartRow: Integer;
+
+    FOutput : TStringList;
+    FLastCol: Integer;
+    FSplitter: String;
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+    //
+    property FilePath : String read FFilePath write FFilePath;
+    property WorkSheetName : String read FWorkSheetName write FWorkSheetName;
+
+    property IndexCol : Integer read FIndexCol write FIndexCol;
+    property LastCol : Integer read FLastCol write FLastCol;
+    property StartRow : Integer read FStartRow write FStartRow;
+    property Output : TStringList read FOutput;
+
+    property Splitter : String read FSplitter write FSplitter;
+
+    procedure Execute;
+
+  end;
+
+  function ExportToExcel(): Boolean;
+
+implementation
+
+function ExportToExcel(): Boolean;
+begin
+end;
+
+{ TExcelParser }
+
+constructor TExcelParser.Create;
+begin
+  FOutput := TStringList.Create;
+  FSplitter := ',';
+end;
+
+destructor TExcelParser.Destroy;
+begin
+  FOutput.Free;
+
+  inherited;
+end;
+
+procedure TExcelParser.Execute;
+var
+  i : Integer;
+  vApplication : OleVariant;
+  aExcelApplication : ExcelApplication;
+  //aWorkSheet : ExcelWorksheet;
+  vWorkSheet : OleVariant;
+  //aStartRange : ExcelRange;
+  //vStartRange : OleVariant;
+
+  //vIndex : OleVariant;
+
+  //aWorkSheets : Worksheets;
+  //vWorkSheets : OleVariant;
+
+  stIndex : String;
+  iP : Integer;
+  stLine, stValue : String;
+begin
+
+
+    FApplication := CreateOleObject('Excel.Application') as _Application;
+    vApplication := FApplication;
+
+    if not FileExists(FFilePath) then Exit;
+    //
+    FOutput.Clear;
+
+
+    vApplication.WorkBooks.Open(FFilePath);
+
+    try
+      aExcelApplication := ExcelApplication(TVarData(vApplication).VDispatch);
+
+      vWorkSheet := vApplication.WorkSheets[FWorkSheetName];
+
+      stIndex := vWorkSheet.Cells[FStartRow,FIndexCol];
+      iP := 0;
+
+      while (stIndex <> '') do
+      begin
+        stLine := stIndex;
+        for i := FIndexCol+1 to FLastCol do
+        begin
+          stValue := vWorkSheet.Cells[FStartRow+iP, i];
+          stLine := stLine + FSplitter + stValue;
+        end;
+
+        FOutput.Add(stLine);
+
+        Inc(iP);
+        stIndex := Trim(vWorkSheet.Cells[FStartRow+iP,FIndexCol])
+      end;
+    finally
+      vApplication.Quit;
+    end;
+
+end;
+
+end.
+
+
+

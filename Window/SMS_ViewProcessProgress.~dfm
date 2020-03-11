@@ -1,0 +1,53 @@
+object ViewProcessProgress: TViewProcessProgress
+  Left = 197
+  Top = 117
+  BorderStyle = bsToolWindow
+  Caption = 'ViewProcessProgress'
+  ClientHeight = 134
+  ClientWidth = 687
+  Color = clBtnFace
+  Font.Charset = ANSI_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -12
+  Font.Name = 'Arial'
+  Font.Style = []
+  OldCreateOrder = False
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  PixelsPerInch = 96
+  TextHeight = 15
+  object PanelLastMessage: TPanel
+    Left = 8
+    Top = 8
+    Width = 665
+    Height = 57
+    Alignment = taLeftJustify
+    BevelOuter = bvNone
+    Color = clWindowFrame
+    TabOrder = 0
+  end
+  object PanelStatus: TPanel
+    Left = 8
+    Top = 70
+    Width = 665
+    Height = 26
+    Alignment = taLeftJustify
+    BevelOuter = bvNone
+    Color = clWindowFrame
+    Font.Charset = ANSI_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Arial'
+    Font.Style = []
+    ParentFont = False
+    TabOrder = 1
+  end
+  object ProgressBarProcess: TProgressBar
+    Left = 16
+    Top = 104
+    Width = 649
+    Height = 17
+    TabOrder = 2
+  end
+end

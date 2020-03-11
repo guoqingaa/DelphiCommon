@@ -1,0 +1,145 @@
+unit DGridColors;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Buttons, ExtCtrls, SMS_InspectorGrid;
+
+type
+  TGridColorDialog = class(TForm)
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    ShapePosBack: TShape;
+    SpeedButton4: TSpeedButton;
+    ShapePosFont: TShape;
+    SpeedButton1: TSpeedButton;
+    ShapeNegBack: TShape;
+    SpeedButton2: TSpeedButton;
+    ShapeNegFont: TShape;
+    SpeedButton3: TSpeedButton;
+    ButtonOK: TButton;
+    ButtonCancel: TButton;
+    Label5: TLabel;
+    ShapeFixed: TShape;
+    SpeedButton5: TSpeedButton;
+    Label6: TLabel;
+    ShapeSelectedColor: TShape;
+    SpeedButton6: TSpeedButton;
+    Label7: TLabel;
+    ShapeSelectedFont: TShape;
+    SpeedButton7: TSpeedButton;
+    ColorDialog1: TColorDialog;
+    CheckSelectedFrameRect: TCheckBox;
+    Label8: TLabel;
+    EditSelectedFrameWidth: TEdit;
+    Bevel1: TBevel;
+    ShapeBackColor: TShape;
+    SpeedButton8: TSpeedButton;
+    Label9: TLabel;
+    Label10: TLabel;
+    ShapeBackFontColor: TShape;
+    SpeedButton9: TSpeedButton;
+    ButtonLoadDefault: TButton;
+    PanelColors: TPanel;
+    procedure SpeedColorButtonClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure ButtonLoadDefaultClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+  private
+    FOnLoadDefault: TNotifyEvent;
+    { Private declarations }
+
+  public
+    { Public declarations }
+    GridUtilizer : TObject;
+    InspectorGrid : TInspectorGrid;
+
+    //
+    property OnLoadDefault : TNotifyEvent read FOnLoadDefault write FOnLoadDefault;
+  end;
+
+var
+  GridColorDialog: TGridColorDialog;
+
+implementation
+
+uses
+  SMS_GridUtilizer;
+
+{$R *.dfm}
+
+procedure TGridColorDialog.SpeedColorButtonClick(Sender: TObject);
+var
+  aButton : TSpeedButton;
+  aShape : TShape;
+begin
+  //
+  aButton := Sender as TSpeedButton;
+  //
+  //aShape := nil;
+  case aButton.Tag of
+    1 :
+      aShape := ShapeFixed;
+    2 :
+      aShape := ShapeSelectedColor;
+    3 :
+      aShape := ShapeSelectedFont;
+    4 :
+      aShape := ShapePosBack;
+    5 :
+      aShape := ShapePosFont;
+    6 :
+      aShape := ShapeNegBack;
+    7 :
+      aShape := ShapeNegFont;
+    8 :
+      aShape := ShapeBackColor;
+    9 :
+      aShape := ShapeBackFontColor;
+
+    else
+      Exit;
+  end;
+  //
+  ColorDialog1.Color := aShape.Brush.Color;
+  //
+  if ColorDialog1.Execute then
+    aShape.Brush.Color := ColorDialog1.Color;
+end;
+
+
+
+procedure TGridColorDialog.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_ESCAPE then
+    ButtonCancel.Click;
+end;
+
+procedure TGridColorDialog.ButtonLoadDefaultClick(Sender: TObject);
+begin
+  //.
+  if Assigned(FOnLoadDefault) then
+    FOnLoadDefault(Self);
+  {
+  if GridUtilizer <> nil then
+    (GridUtilizer as TGridUtilizer3).InitColors;
+  }
+end;
+
+procedure TGridColorDialog.FormCreate(Sender: TObject);
+begin
+  InspectorGrid := TInspectorGrid.Create(PanelColors);
+end;
+
+procedure TGridColorDialog.FormDestroy(Sender: TObject);
+begin
+  InspectorGrid.Free;
+end;
+
+end.

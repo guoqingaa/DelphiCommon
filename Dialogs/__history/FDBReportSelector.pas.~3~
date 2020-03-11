@@ -1,0 +1,1289 @@
+unit FDBReportSelector;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, Grids,   ExtCtrls, Math,
+
+  DBPerformance, StdCtrls, Performance, SMS_Graphics, MSXML_TLB, SMS_XMLs,
+  Buttons,  SMS_Broadcaster, SMS_CtrlUtils, Globals, SMS_Strings,
+  Menus;
+
+type
+  TDBReportSelector = class(TForm)
+    Panel1: TPanel;
+    Label1: TLabel;
+    EditUpdateDate: TEdit;
+    Label2: TLabel;
+    Button3: TButton;
+    Button4: TButton;
+    ButtonNewLoad: TButton;
+    Panel2: TPanel;
+    ButtonNewGroup: TSpeedButton;
+    ButtonAddToGroup: TSpeedButton;
+    UploadReportGroup: TSpeedButton;
+    GridReportGroups: TStringGrid;
+    GridDBReports: TStringGrid;
+    SpeedButton1: TSpeedButton;
+    PopupMenu1: TPopupMenu;
+    Desc1: TMenuItem;
+    GetReportSerial1: TMenuItem;
+    ButtonRefresh: TSpeedButton;
+    SpeedButton2: TSpeedButton;
+    Comment1: TMenuItem;
+    Symbol1: TMenuItem;
+    N1: TMenuItem;
+    estChilds1: TMenuItem;
+    Splitter1: TSplitter;
+    ComboRecentReportFilters: TComboBox;
+    ComboRecentGroupFilters: TComboBox;
+    procedure FormCreate(Sender: TObject);
+    procedure GridDBReportsDrawCell(Sender: TObject; ACol, ARow: Integer;
+      Rect: TRect; State: TGridDrawState);
+    procedure ButtonRefreshClick(Sender: TObject);
+    procedure ButtonLoad(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+    procedure ButtonNewLoadClick(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure ButtonNewGroupClick(Sender: TObject);
+    procedure ButtonAddToGroupClick(Sender: TObject);
+    procedure GridReportGroupsDrawCell(Sender: TObject; ACol,
+      ARow: Integer; Rect: TRect; State: TGridDrawState);
+    procedure UploadReportGroupClick(Sender: TObject);
+
+    procedure SpeedButton1Click(Sender: TObject);
+    procedure Desc1Click(Sender: TObject);
+    procedure GetReportSerial1Click(Sender: TObject);
+    procedure GridDBReportsDblClick(Sender: TObject);
+    procedure Comment1Click(Sender: TObject);
+    procedure Symbol1Click(Sender: TObject);
+    procedure N1Click(Sender: TObject);
+    procedure estChilds1Click(Sender: TObject);
+    procedure ComboRecentReportFiltersKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure ComboRecentGroupFiltersKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+
+  private
+    { Private declarations }
+    FDBReportList : TList;
+    FDBReportGroupList : TList;
+    FReportsMaxColCount : Integer;
+
+    function GetSelectedReport : TDBReport;
+
+    procedure RefreshDBReports;
+    procedure RefreshDBReportGrid;
+
+    procedure RefreshDBReportGroups;
+
+    procedure LoadConfigs;
+    procedure SaveConfigs;
+
+    procedure GroupClearProc(Sender, Receiver, DataObj : TObject;
+                  iBroadcastKind : Integer; btValue : TBroadcastType);
+
+    procedure ReportDeleted(Sender: TObject);
+    procedure LoadReportReady(Sender: TObject);
+  public
+    { Public declarations }
+  end;
+
+var
+  DBReportSelector: TDBReportSelector;
+
+  //gReportFormList : TList;
+
+implementation
+
+{$R *.dfm}
+
+uses
+  FMain, SMS_DTextEditor;
+
+const
+  DB_CONFIG = 'dbselector.xml';
+
+  REPORT_REPORTNAME_COL = 0;
+  //REPORT_UPDATE_COL = 16;
+  //REPORT_LASTTRADE_COL = 15;
+
+  REPORT_REPORTNAME_WIDTH = 200;
+  REPORT_ROA_WIDTH = 30;
+  REPORT_PL_WIDTH = 50;
+  REPORT_UPDATE_WIDTH = 70;
+
+
+  REPORT_ROA_SCOL = 1;
+  REPORT_PL_SCOL = 8;
+  //
+  PERIOD_ROW = 1;
+
+  GRID_REPORT_STARTROW = 2;
+  GRID_GROUP_STARTROW = 1;
+
+  GROUP_GROUP_COL = 0;
+  GROUP_REPORT_COL = 1;
+
+  GROUP_REPORT_WIDTH = 100;
+  GROUP_GROUP_WIDTH = 100;
+
+var
+  gUpdateDateSort : Integer = 1;
+
+function DBReportUpdateDateSortProc(Item1, Item2: Pointer): Integer;
+var
+  aReport, aReport2 : TDBReport;
+begin
+  if (Item1 = nil) or (Item2 = nil) then Exit;
+  //
+  aReport := TDBReport(Item1);
+  aReport2 := TDBReport(Item2);
+  //
+  if aReport.UpdateTime > aReport2.UpdateTime then
+    Result := 1
+  else if aReport.UpdateTime < aReport2.UpdateTime then
+    Result := -1
+  else
+    Result := 0;
+  //
+  if gUpdateDateSort > 0 then
+    Result := Result * -1;
+end;
+
+{ TForm2 }
+
+procedure TDBReportSelector.RefreshDBReports;
+var
+  i, j : Integer;
+  aReport : TDBReport;
+  dROASum, dPLSum : Double;
+
+  iLastRow : Integer;
+begin
+  //
+
+  gDBReportManager.RefreshDBReports(ComboRecentReportFilters.Text, EditUpdateDate.Text);
+
+
+  FDBReportList.Clear;
+  iLastRow := GridDBReports.RowCount-1;
+  for i := 0 to gDBReportManager.ReportCount-1 do
+  begin
+    (*
+    if i > 0 then
+    begin
+      GridDBReports.RowCount := GridDBReports.RowCount+1;
+      iLastRow := GridDBReports.RowCount-1;
+      GridDBReports.Rows[iLastRow].Clear;
+    end;
+    *)
+    aReport := gDBReportManager.Reports[i];
+    //
+    (*
+    GridDBReports.Objects[0, iLastRow] := aReport;
+    GridDBReports.Cells[REPORT_REPORTNAME_COL, iLastRow] := aReport.ReportName;
+    *)
+    FDBReportList.Add(aReport);
+    //
+    (*
+    dROASum := 0;
+    dPLSum := 0;
+    for j := 0 to PERIOD_COUNT-1 do
+    begin
+      GridDBReports.Cells[REPORT_ROA_SCOL + j, iLastRow] := Format('%.0f', [aReport.ROAs[j]]);
+      dROASum := dROASum + aReport.ROAs[j];
+
+      GridDBReports.Cells[REPORT_PL_SCOL+j, iLastRow] := Format('%.0n', [aReport.NetProfits[j]]);
+      dPLSum := dPLSum + aReport.NetProfits[j];
+    end;
+
+    GridDBReports.Cells[REPORT_ROA_SCOL + PERIOD_COUNT, iLastRow] :=
+      Format('%.0f', [dROASum / aReport.PeriodCount]);
+    GridDBReports.Cells[REPORT_PL_SCOL + PERIOD_COUNT, iLastRow] :=
+      Format('%.0n', [dPLSum / aReport.PeriodCount]);
+
+
+    GridDBReports.Cells[REPORT_LASTTRADE_COL, iLastRow] :=
+      FormatDateTime('yy-mm-dd', aReport.LastTradeDateTime);
+
+    GridDBReports.Cells[REPORT_UPDATE_COL, iLastRow] :=
+      FormatDateTime('yy-mm-dd', aReport.UpdateTime);
+    *)
+  end;
+  FDBReportList.Sort(DBReportUpdateDateSortProc);
+  RefreshDBReportGrid;
+
+
+end;
+
+procedure TDBReportSelector.ReportDeleted(Sender: TObject);
+begin
+  ButtonRefresh.Click;
+end;
+
+procedure TDBReportSelector.FormCreate(Sender: TObject);
+begin
+  FDBReportList := TList.Create;
+  FDBReportGroupList := TList.Create;
+  LoadConfigs;
+
+  ComboRecentReportFilters.Items.Assign(gRecentlyReportList);
+  //
+  if ComboRecentReportFilters.Items.Count > 0 then
+    ComboRecentReportFilters.ItemIndex := 0;
+  //
+  ComboRecentGroupFilters.Items.Assign(gRecentlyGroupList);
+  if ComboRecentGroupFilters.Items.Count > 0 then
+    ComboRecentGroupFilters.ItemIndex := 0;
+
+  RefreshDBReports;
+
+  RefreshDBReportGroups;
+
+  gDBReportManager.Broadcaster.Subscribe(BID_REPORTGROUP, [btRefresh], Self, GroupClearProc);
+end;
+
+procedure TDBReportSelector.GridDBReportsDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+var
+  aAlignment : TAlignment;
+  iX, iY : Integer;
+  aSize : TSize;
+  stText : String;
+
+  bMax : Boolean;
+  aGrid : TStringGrid;
+
+  dValue : Double;
+  aPenColor, aFontColor, aBrushColor : TColor;
+  aFontStyle : TFontStyles;
+  {aLastReport,} aDBReport : TDBReport;
+
+  //
+  iSROA, iLROA, iSPL, iLPL : Integer;
+
+begin
+  //
+  aDBReport := GridDBReports.Objects[0, ARow] as TDBReport;
+
+  aGrid := Sender as TStringGrid;
+  with aGrid.Canvas do
+  begin
+    aPenColor := aGrid.Canvas.Pen.Color;
+    aFontColor := Font.Color;
+    aBrushColor := Brush.Color;
+    aFontStyle := Font.Style;
+
+    aGrid.Canvas.Font.Name := aGrid.Font.Name;
+    aGrid.Canvas.Font.Size := aGrid.Font.Size;
+    aGrid.Canvas.Brush.Color := clWhite;
+    //
+    bMax := False;
+    stText := aGrid.Cells[ACol, ARow];
+    dValue := 0;
+    aAlignment := taRightJustify;
+    iSROA := REPORT_REPORTNAME_COL + 1;
+    iLROA := iSROA + FReportsMaxColCount;
+    iSPL := iLROA + 1;
+    iLPL := iSPL + FReportsMaxColCount;
+
+    if (aDBReport <> nil) and (aDBReport.IsDeleting) then
+      Font.Style := Font.Style + [fsStrikeOut];
+
+    if (ACol = REPORT_REPORTNAME_COL) or
+      (ACol > REPORT_REPORTNAME_COL + (FReportsMaxColCount + 1)*2) then
+      aAlignment := taLeftJustify;
+    //
+    if gdSelected in State then
+      Brush.Color := SELECTED_COLOR2
+    else if gdFixed in State then
+    begin
+      Brush.Color := clBtnFace;//FIXED_COLOR;
+    end else
+    begin
+
+      if (gdSelected in State) and (ACol = REPORT_REPORTNAME_COL) then
+      begin
+        Brush.Color := SELECTED_COLOR2
+      end;
+      //
+
+
+      if (ARow >= GRID_REPORT_STARTROW) and
+        (ACol in [iSROA .. iLPL]) then
+      begin
+
+        try
+          if stText <> '' then
+            dValue := StrToFloat(StringReplace(stText, ',' , '', [rfReplaceAll]));
+        except
+          dValue := 0;
+        end;
+        //
+        if dValue = 0 then
+        else if dValue > 0 then
+          Font.Color := clBlue
+        else
+          Font.Color := clRed;
+        //
+        if dValue > 0 then
+        begin
+          if ACol in [iSROA..iLROA] then
+            Brush.Color := GetGradationColor2(clWhite, clGray,
+                (dValue)/aDBReport.ColorMaxROA)
+
+          else if ACol in [iSPL..iLPL] then
+            Brush.Color := GetGradationColor2(clWhite, clGray,
+                (dValue)/aDBReport.ColorMaxPL);
+
+        end;
+
+
+      end;
+      //
+    end;
+
+    //-- background
+    //Pen.Color := Brush.Color;
+    FillRect(Rect);
+    //-- text
+
+    //-- calc position
+    aSize := TextExtent(stText);
+    iY := Rect.Top + (Rect.Bottom - Rect.Top - aSize.cy) div 2;
+    iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+    //-- put text
+    case aAlignment of
+      taLeftJustify :  iX := Rect.Left + 2 + 2;
+      taCenter :       iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+      taRightJustify : iX := Rect.Left + Rect.Right-Rect.Left - 2 - aSize.cx - 2;
+    end;
+    TextRect(Rect, iX, iY, stText);
+
+    //
+    if ARow >= GRID_REPORT_STARTROW then
+    begin
+
+      if ACol in [REPORT_REPORTNAME_COL, iLROA-1, iLROA, iLPL-1, iLPL, iLPL+1, iLPL+2] then
+      begin
+        Pen.Color := clGray;
+        MoveTo(Rect.Right, Rect.Top);
+        LineTo(Rect.Right, Rect.Bottom+1);
+      end;
+
+
+      {
+      if gdSelected in State then
+      begin
+        Pen.Color := clBlack;
+        MoveTo(Rect.Left, Rect.Top);
+        LineTo(Rect.Right+1, Rect.Top);
+
+
+        //
+        MoveTo(Rect.Left, Rect.Bottom);
+        LineTo(Rect.Right+1, Rect.Bottom);
+      end;
+      }
+    end else
+    if ARow = 0 then
+    begin
+      if ACol in [iSROA..iLROA-1] then
+      begin
+        Rect.Left := GridDBReports.CellRect(iSROA, ARow).Left;
+        Rect.Right := GridDBReports.CellRect(iLROA, ARow).Right;
+
+        stText := 'ROA';
+        aSize := TextExtent(stText);
+        iY := Rect.Top + (Rect.Bottom - Rect.Top - aSize.cy) div 2;
+        iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+        TextRect(Rect, iX, iY, stText);
+
+      end else
+      if ACol in [iSPL..iLPL] then
+      begin
+        Rect.Left := GridDBReports.CellRect(iSPL, ARow).Left;
+        Rect.Right := GridDBReports.CellRect(iLPL, ARow).Right;
+
+        stText := 'Net Profit';
+        aSize := TextExtent(stText);
+        iY := Rect.Top + (Rect.Bottom - Rect.Top - aSize.cy) div 2;
+        iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+        TextRect(Rect, iX, iY, stText);
+
+      end;
+
+    end;
+
+    aGrid.Canvas.Pen.Color := aPenColor;
+    aGrid.Canvas.Font.Color := aFontColor;
+    aGrid.Canvas.Brush.Color := aBrushColor;
+    aGrid.Canvas.Font.Style := aFontStyle;
+
+  end;
+end;
+
+procedure TDBReportSelector.ButtonRefreshClick(Sender: TObject);
+var
+  iP : Integer;
+begin
+  gDBReportManager.RefreshDBReports(ComboRecentReportFilters.Text, EditUpdateDate.Text);
+
+  RefreshDBReports;
+  RefreshDBReportGroups;
+  //
+  ApplyComboRecentlyItem(ComboRecentReportFilters, gRecentlyReportList);
+  ApplyComboRecentlyItem(ComboRecentGroupFilters, gRecentlyGroupList);
+  {
+  iP := gRecentlyReportList.IndexOf(ComboRecentReportFilters.Text);
+  if iP >= 0 then
+    gRecentlyReportList.Delete(iP);
+  //
+  gRecentlyReportList.Insert(0, ComboRecentReportFilters.Text);
+  ComboRecentReportFilters.Items.Assign(gRecentlyReportList);
+  if ComboRecentReportFilters.Items.Count > 0 then
+    ComboRecentReportFilters.ItemIndex := 0;
+  }
+end;
+
+procedure TDBReportSelector.ButtonLoad(Sender: TObject);
+var
+  aDBReport : TDBReport;
+  bAdd : Boolean;
+  aForm : TPerformanceForm;
+begin
+  aDBReport := GetSelectedReport;
+  if aDBReport = nil then Exit;
+
+  bAdd := (Sender as TComponent).Tag = 20;
+
+  aForm := GetLastROAForm;
+
+  if aForm = nil then
+  begin
+    ShowMessage('레포트 폼이 존재하지 않습니다' + #13 +
+                '레포트 폼을 추가 하세요');
+    Exit;
+  end;
+
+  if not bAdd then
+  begin
+    aForm.ClearAll;// Matrixs;
+  end;
+
+  aDBReport.OnReportReady := LoadReportReady;
+  aDBReport.LoadReportFromDB(aForm);
+
+  //PerformanceForm.LoadReportFromDB(aDBReport, bAdd);
+end;
+
+procedure TDBReportSelector.Button3Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+begin
+
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  if MessageDlg(aDBReport.ReportName + '을 삭제 하시겠습니까?', mtConfirmation, [mbYes, mbNo], -1) <> mrYes then
+    Exit;
+
+  gDBReportManager.DeleteReportByThread(aDBReport, ReportDeleted);
+
+  ButtonRefresh.Click;
+  {
+  gDBReportManager.DeleteReport(aDBReport);
+  ButtonRefresh.Click;
+  }
+end;
+
+procedure TDBReportSelector.ButtonNewLoadClick(Sender: TObject);
+var
+  aForm : TPerformanceForm;
+  aDBReport : TDBReport;
+begin
+  //
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+
+  aForm := TPerformanceForm.Create(Application);
+  aForm.Show;
+  //
+  aDBReport.OnReportReady := aForm.DBReportReady;
+  aDBReport.LoadReportFromDB(aForm);
+
+  {
+  aForm.LoadReportFromDB(aDBReport, False);
+  }
+end;
+
+
+
+procedure TDBReportSelector.LoadConfigs;
+var
+  aDoc : IXMLDOMDocument;
+  aNodeList : IXMLDOMNodeList;
+  aElement : IXMLDOMElement;
+  stValue : String;
+  iValue : Integer;
+begin
+    //
+  aDoc := GetXMLDocument;
+  //
+  aDoc.load(gApplicationPath + DB_CONFIG);
+
+  aNodeList := aDoc.getElementsByTagName('control');
+  //
+  if aNodeList.length > 0 then
+  begin
+    aElement := aNodeList.item[0] as IXMLDOMElement;
+
+    //if GetAttribute(aElement, 'dbselector_filter', stValue) then
+    //  DBReportSelector.EditNameFilter.Text := stValue;
+    //
+    //if GetAttribute(aElement, 'group_filter', stValue) then
+    //  DBReportSelector.EditGroupFilter.Text := stValue;
+
+    if GetAttribute(aElement, 'update_date', stValue) then
+      DBReportSelector.EditUpdateDate.Text := stValue;
+
+    if GetAttribute(aElement, 'grid_dbreports_width', iValue) then
+      GridDBReports.Width := iValue;
+
+    if GetAttribute(aElement, 'top', iValue) then
+      Top := iValue;
+    if GetAttribute(aElement, 'left', iValue) then
+      Left := iValue;
+    if GetAttribute(aElement, 'width', iValue) then
+      Width := iValue;
+    if GetAttribute(aElement, 'height', iValue) then
+      Height := iValue;
+
+  end;
+
+end;
+
+procedure TDBReportSelector.SaveConfigs;
+
+  var
+  aDoc : IXMLDOMDocument;
+  aElement, aElement2 : IXMLDOMElement;
+begin
+  //
+  aDoc := GetXMLDocument;
+
+  aElement := MakeChildElement(aDoc, nil, 'root');
+  aElement2 := MakeChildElement(aElement, 'control');
+
+
+  //aElement2.setAttribute('dbselector_filter', DBReportSelector.EditNameFilter.Text);
+  //aElement2.setAttribute('group_filter', DBReportSelector.EditGroupFilter.Text);
+  aElement2.setAttribute('update_date', EditUpdateDate.Text);
+
+  aElement2.setAttribute('grid_dbreports_width', GridDBReports.Width);
+
+  aElement2.setAttribute('width', Width);
+  aElement2.setAttribute('height', Height);
+  aElement2.setAttribute('top', Top);
+  aElement2.setAttribute('left', Left);
+
+  aDoc.save(gApplicationPath + DB_CONFIG);
+
+
+end;
+
+procedure TDBReportSelector.FormDestroy(Sender: TObject);
+begin
+  gDBReportManager.Broadcaster.UnSubscribe(Self);
+  SaveConfigs;
+
+  FDBReportList.Free;
+  FDBReportGroupList.Free;
+end;
+
+procedure TDBReportSelector.ButtonNewGroupClick(Sender: TObject);
+var
+  aDBReportGroup : TDBReportGroup;
+  stInput, stValue : String;
+begin
+  //
+
+  stInput := InputBox('Input Report Name', 'Input Report Name', '');
+  //
+  if Length(stInput) = 0 then
+  begin
+    ShowMessage('invalid report name');
+    Exit;
+  end;
+
+
+  aDBReportGroup := gDBReportManager.FindDBReportGroup(stInput);
+  //
+  if aDBReportGroup <> nil then
+  begin
+    if MessageDlg('레포트가 이미 존재합니다. 기존의 레포트의 Symbol을 변경하시겟습니까?',
+       mtConfirmation, [mbOK, mbCancel], -1) = mrOk then
+    begin
+      //
+      stValue := aDBReportGroup.Symbol + '_' + FormatDateTime('yyyymm', aDBReportGroup.LastTradeDateTime);
+      //
+      aDBReportGroup.RenameSymbol(stValue);
+    end else
+      Exit;
+  end;
+  //
+  aDBReportGroup := gDBReportManager.NewDBReportGroup(0);
+  aDBReportGroup.DBLoaded := False;
+  aDBReportGroup.Symbol := stInput;
+
+  RefreshDBReportGroups;
+
+end;
+
+procedure TDBReportSelector.RefreshDBReportGroups;
+var
+  i, j, iLastRow, iPos : Integer;
+  aReportGroup : TDBReportGroup;
+begin
+  //
+
+  GridReportGroups.RowCount := GRID_GROUP_STARTROW+1;
+  GridReportGroups.Rows[1].Clear;
+  GridReportGroups.ColCount := 4;
+  GridReportGroups.ColWidths[GROUP_GROUP_COL] := GROUP_GROUP_WIDTH;
+  GridReportGroups.ColWidths[GROUP_REPORT_COL] := GROUP_REPORT_WIDTH;
+  //
+  for i := 0 to gDBReportManager.ReportGroupCount-1 do
+  begin
+    try
+    aReportGroup := gDBReportManager.ReportGroups[i];
+    //
+    if Length(ComboRecentGroupFilters.Text) > 0 then
+    begin
+      iPos := Pos(UpperCase(ComboRecentGroupFilters.Text), UpperCase(aReportGroup.Symbol));
+      if iPos <= 0 then continue;
+    end;
+    //
+    if i > 0 then
+      GridReportGroups.RowCount := GridReportGroups.RowCount + 1;
+    //
+
+    iLastRow := GridReportGroups.RowCount-1;
+
+    GridReportGroups.Rows[iLastRow].Clear;
+
+    GridReportGroups.Cells[0, iLastRow] := aReportGroup.Symbol;
+    GridReportGroups.Objects[0, iLastRow] := aReportGroup;
+    //
+    //
+    for j := 0 to aReportGroup.ReportCount-1 do
+    begin
+      if j > 0 then
+      begin
+        GridReportGroups.RowCount := GridReportGroups.RowCount+1;
+        iLastRow := GridReportGroups.RowCount-1;
+        GridReportGroups.Rows[iLastRow].Clear;
+      end;
+
+
+      GridReportGroups.Cells[1, iLastRow] := aReportGroup.Reports[j].ReportName;
+      GridReportGroups.Objects[1, iLastRow] := aReportGroup.Reports[j];
+
+    end;
+
+    except
+      ShowMessage(aReportGroup.Symbol + 'failed');
+    end;
+  end;
+  //
+
+  GridReportGroups.ColWidths[GROUP_GROUP_COL] :=
+    GridColWidth(GridReportGroups, GROUP_GROUP_COL, 5);
+
+  GridReportGroups.ColWidths[GROUP_REPORT_COL] :=
+    GridColWidth(GridReportGroups, GROUP_REPORT_COL, 5);
+
+end;
+
+procedure TDBReportSelector.ButtonAddToGroupClick(Sender: TObject);
+var
+  aDBReportGroup : TDBReportGroup;
+  aDBReport : TDBReport;
+  iRow, iCol : Integer;
+begin
+  //
+  if GridReportGroups.Row < 0 then Exit;
+
+  aDBReportGroup := GridReportGroups.Objects[0, GridReportGroups.Row] as TDBReportGroup;
+  if aDBReportGroup = nil then Exit;
+  //
+  if GridDBReports.Row < 0 then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  if aDBReport = nil then Exit;
+  //
+  if aDBReport.IsDeleting then
+  begin
+    ShowMessage('삭제중이기 때문에 선택 할 수 없습니다');
+    Exit;
+  end;
+
+  if aDBReportGroup.ReportList.IndexOf(aDBReport) >= 0 then
+  begin
+    ShowMessage('already exists');
+    Exit;
+  end else
+  begin
+    aDBReportGroup.ReportList.Add(aDBReport);
+
+    iRow := GridReportGroups.Row;
+    iCol := GridReportGroups.Col;
+    RefreshDBReportGroups;
+
+    if iRow < GridReportGroups.RowCount then
+      GridReportGroups.Row := iRow;
+
+    if iCol < GridReportGroups.ColCount then
+      GridReportGroups.Col := iCol;
+
+  end;
+
+end;
+
+procedure TDBReportSelector.GridReportGroupsDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+const
+  REPORT_COL = 1;
+  REPORTGROUP_COL = 0;
+  REPORTID_COL = 2;
+  UPDATETIME_COL = 3;
+var
+  aAlignment : TAlignment;
+  iX, iY : Integer;
+  aSize : TSize;
+  stText : String;
+  aGrid : TStringGrid;
+  bLeft, bTop, bBottom, bRight : Boolean;
+  bBottomDot : Boolean;
+  aPenColor : TColor;
+  aReportGroup : TDBReportGroup;
+  aReport : TDBReport;
+  iPeriodCount : Integer;
+
+//const
+//  DB_ColorMaxROA = 300;
+//  DB_ColorMaxPL = 15000;
+
+begin
+
+  aReportGroup := nil;
+  aReport := nil;
+  //
+  //if (ACol = 0) then
+    aReportGroup := GridReportGroups.Objects[0{ACol}, ARow] as TDBReportGroup;
+  if (ACol = 1) or (ACol = 2) then
+  begin
+    if (GridReportGroups.Objects[REPORT_COL, ARow] is TDBReport) then
+      aReport := GridReportGroups.Objects[REPORT_COL, ARow] as TDBReport;
+  end;
+
+  aGrid := Sender as TStringGrid;
+  with aGrid.Canvas do
+  begin
+    aPenColor := aGrid.Canvas.Pen.Color;
+    Font.Name := aGrid.Font.Name;
+    Font.Size := aGrid.Font.Size;
+    Brush.Color := clWhite;
+    stText := aGrid.Cells[ACol, ARow];
+    //
+    aAlignment := taLeftJustify;
+
+    if gdSelected in State then
+    begin
+      Brush.Color := SELECTED_COLOR2;
+      bTop := True;
+      bBottom := True;
+      //Rect.Right := Rect.Right;
+    end else
+    if gdFixed in State then
+    begin
+      Brush.Color := clBtnFace;//FIXED_COLOR;
+
+      //aAlignment := taCenter;
+    end;
+    if aReportGroup <> nil then
+    begin
+      if ACol = 0 then
+        stText := aReportGroup.Symbol;
+    end;
+
+    if aReport <> nil then
+    begin
+      if ACol = 1 then
+        stText := aReport.ReportName
+      else if ACol = 2 then
+        stText := Format('%.0n', [aReport.ReportID*1.0]);
+      //else if ACol = 3 then
+      //  stText := arep
+    end;
+
+    if aReportGroup <> nil then
+    begin
+      if ACol = 3 then
+        stText := FormatDateTime('yyyy-mm-dd', aReportGroup.UpdateTime);
+    end;
+    //
+    if ARow = 0 then
+    begin
+      if ACol = REPORTGROUP_COL then
+        stText := 'Group'
+      else if ACol = REPORT_COL then
+        stText := 'Report'
+      else if ACol = REPORTID_COL then
+        stText := 'ReportID'
+      else if ACol = UPDATETIME_COL then
+        stText := 'UpdateTime';
+    end;
+
+    //-- background
+    //Pen.Color := Brush.Color;
+    FillRect(Rect);
+    //-- text
+    //if stText = '' then Exit;
+    //-- calc position
+    aSize := TextExtent(stText);
+    iY := Rect.Top + (Rect.Bottom - Rect.Top - aSize.cy) div 2;
+    iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+    //-- put text
+    case aAlignment of
+      taLeftJustify :  iX := Rect.Left + 2 + 2;
+      taCenter :       iX := Rect.Left + (Rect.Right-Rect.Left-aSize.cx) div 2;
+      taRightJustify : iX := Rect.Left + Rect.Right-Rect.Left - 2 - aSize.cx - 2;
+    end;
+    TextRect(Rect, iX, iY, stText);
+
+    (*
+    if bLeft then
+    begin
+      Pen.Color := clBlack;
+      MoveTo(Rect.Left, Rect.Top);
+      LineTo(Rect.Left, Rect.Bottom);
+    end else
+    begin
+      for i := Rect.Top to Rect.Bottom do
+        if i mod 2 = 0 then
+          Pixels[Rect.Left, i] := clBlack;
+    end;
+
+    if bRight then
+    begin
+      Pen.Color := clBlack;
+      MoveTo(Rect.Right-2, Rect.Top);
+      LineTo(Rect.Right-2, Rect.Bottom);
+    end;
+
+
+
+    if bBottom then
+    begin
+      Pen.Color := clBlack;
+      MoveTo(Rect.Left, Rect.Bottom-2);
+      LineTo(Rect.Right, Rect.Bottom-2);
+    end;
+
+
+
+
+    if bTop then
+    begin
+      Pen.Color := clBlack;
+      MoveTo(Rect.Left, Rect.Top);
+      LineTo(Rect.Right, Rect.Top);
+    end;
+    *)
+  end;
+
+end;
+
+procedure TDBReportSelector.UploadReportGroupClick(Sender: TObject);
+var
+  aReportGroup : TDBReportGroup;
+begin
+  aReportGroup := GridReportGroups.Objects[0, GridReportGroups.Row] as TDBReportGroup;
+  //
+  if aReportGroup = nil then Exit;
+  //
+
+
+  if MessageDlg(Format('%s 을 upload 하시겠습니까', [aReportGroup.Symbol]),
+    mtConfirmation, [mbYes, mbNo], -1) = mrYes then
+  begin
+    aReportGroup.UploadToDB;
+  end;
+
+
+end;
+
+procedure TDBReportSelector.SpeedButton1Click(Sender: TObject);
+var
+  aReportGroup : TDBReportGroup;
+begin
+  aReportGroup := GridReportGroups.Objects[0, GridReportGroups.Row] as TDBReportGroup;
+  //
+  if aReportGroup = nil then Exit;
+  //
+
+  if MessageDlg(Format('%s 을 제거 하시겠습니까', [aReportGroup.Symbol]),
+    mtConfirmation, [mbYes, mbNo], -1) = mrYes then
+  begin
+    aReportGroup.RemoveInDB;
+    aReportGroup.Free;
+    RefreshDBReportGroups;
+  end;
+
+end;
+
+function TDBReportSelector.GetSelectedReport: TDBReport;
+begin
+  Result := nil;
+  //
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  Result := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  if Result = nil then
+    ShowMessage('레포트가 선택 되지 않았습니다');
+end;
+
+procedure TDBReportSelector.GroupClearProc(Sender, Receiver,
+  DataObj: TObject; iBroadcastKind: Integer; btValue: TBroadcastType);
+begin
+  RefreshDBReportGroups;
+end;
+
+procedure TDBReportSelector.LoadReportReady(Sender: TObject);
+begin
+  //
+  PerformanceForm.DBReportReady(Sender);
+end;
+
+procedure TDBReportSelector.Desc1Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+  stValue : String;
+begin
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  //
+  stValue := InputBox('', 'Description 을 변경 하시요', aDBReport.Desc);
+  //
+  if Length(Trim(stValue)) = 0 then Exit;
+  //
+  aDBReport.RenameDesc(stValue);
+
+end;
+
+procedure TDBReportSelector.GetReportSerial1Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+  stValue : String;
+begin
+
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  ShowMessage(IntToStr(aDBReport.ReportID));
+
+end;
+
+procedure TDBReportSelector.GridDBReportsDblClick(Sender: TObject);
+var
+  ACol, ARow : Integer;
+begin
+  GridCurrentPos(GridDBReports, ACol, ARow);
+  //
+  if ACol = REPORT_REPORTNAME_COL + (FReportsMaxColCount + 1) * 2 + 2 then
+  begin
+
+    gUpdateDateSort := gUpdateDateSort * -1;
+    FDBReportList.Sort(DBReportUpdateDateSortProc);
+    RefreshDBReportGrid;
+//    ShowMessage('report_update');
+  end;
+end;
+
+procedure TDBReportSelector.ComboRecentGroupFiltersKeyDown(Sender: TObject;
+  var Key: Word; Shift: TShiftState);
+begin
+  if Key = VK_RETURN then
+    ButtonRefreshClick(ButtonRefresh);
+end;
+
+procedure TDBReportSelector.ComboRecentReportFiltersKeyDown(Sender: TObject;
+  var Key: Word; Shift: TShiftState);
+begin
+  if Key = VK_RETURN then
+    ButtonRefreshClick(ButtonRefresh);
+end;
+
+procedure TDBReportSelector.Comment1Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+  stValue : String;
+  aDialog : TTextEditor;
+begin
+
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  //
+  stValue := InputBox('', 'comment를 변경 하시요', aDBReport.Desc);
+  //
+  if Length(Trim(stValue)) = 0 then Exit;
+  //
+  aDBReport.RenameProperties('comment', stValue);
+
+
+end;
+
+procedure TDBReportSelector.Symbol1Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+  stValue : String;
+  aDialog : TTextEditor;
+begin
+
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  //
+  stValue := InputBox('', 'symbol를 변경 하시요', aDBReport.ReportName);
+  //
+  if Length(Trim(stValue)) = 0 then Exit;
+  //
+  aDBReport.RenameProperties('report_name', stValue);
+
+
+end;
+
+procedure TDBReportSelector.RefreshDBReportGrid;
+var
+  i, j, iLastRow, iMaxPeriodCount : Integer;
+  aDBReport : TDBReport;
+  dROASum, dPLSum : Double;
+  iSPLCol, iSROACol, iLROACol, iLPLCol : Integer;
+begin
+  //
+  iMaxPeriodCount := 0;
+  for i := 0 to FDBReportList.Count-1 do
+  begin
+    aDBReport := TDBReport(FDBReportList.Items[i]);
+    iMaxPeriodCount := Max(iMaxPeriodCount, aDBReport.PeriodCount);
+  end;
+  FReportsMaxColCount := iMaxPeriodCount;
+  iSROACol := REPORT_REPORTNAME_COL + 1;
+  iLROACol := iSROACol + iMaxPeriodCount;
+  iSPLCol := iLROACol + 1;
+  iLPLCol := iSPLCol + iMaxPeriodCount;
+
+  GridDBReports.RowCount := GRID_REPORT_STARTROW+1;
+  GridDBReports.Rows[GridDBReports.RowCount-1].Clear;
+
+  GridDBReports.ColCount := 1{strategy} + (iMaxPeriodCount + 1{avg})*2 +
+    1{last trade} + 1;{update};
+  //
+  GridDBReports.ColWidths[REPORT_REPORTNAME_COL] := REPORT_REPORTNAME_WIDTH;
+
+  if FDBReportList.Count = 0 then Exit;
+
+  for i := 0 to iMaxPeriodCount-1 do
+    GridDBReports.Cells[iSROACol+i, PERIOD_ROW] := IntToStr(i+1);
+  GridDBReports.Cells[iLROACol, PERIOD_ROW] := 'avg';
+  //
+  for i := 0 to iMaxPeriodCount-1 do
+    GridDBReports.Cells[iSPLCol+ i, 1] := IntToStr(i+1);
+  GridDBReports.Cells[iLPLCol, 1] := 'avg';
+  //
+
+
+
+  {
+  for i := 0 to PERIOD_COUNT do
+  begin
+    GridDBReports.ColWidths[REPORT_PL_SCOL + i] := REPORT_PL_WIDTH;
+    GridDBReports.ColWidths[REPORT_ROA_SCOL + i] := REPORT_ROA_WIDTH;
+  end;
+  }
+
+  GridDBReports.Cells[REPORT_REPORTNAME_COL, 1] := 'strategy';
+  GridDBReports.Cells[REPORT_REPORTNAME_COL + (iMaxPeriodCount+1)*2 + 1, 1] := 'Last Trade';
+  GridDBReports.Cells[REPORT_REPORTNAME_COL + (iMaxPeriodCount+1)*2 + 2, 1] := 'Update';
+
+  GridDBReports.ColWidths[REPORT_REPORTNAME_COL + (iMaxPeriodCount+1)*2 + 2] := REPORT_UPDATE_WIDTH;
+
+
+  iLastRow := GridDBReports.RowCount-1;
+  for i := 0 to FDBReportList.Count-1 do
+  begin
+    aDBReport := TDBReport(FDBReportList.Items[i]);
+    if i > 0 then
+    begin
+      GridDBReports.RowCount := GridDBReports.RowCount+1;
+      iLastRow := GridDBReports.RowCount-1;
+      GridDBReports.Rows[iLastRow].Clear;
+    end;
+
+    //
+    GridDBReports.Objects[0, iLastRow] := aDBReport;
+    GridDBReports.Cells[REPORT_REPORTNAME_COL, iLastRow] := aDBReport.ReportName;
+    //
+    dROASum := 0;
+    dPLSum := 0;
+    for j := 0 to iMaxPeriodCount-1 do
+    begin
+      GridDBReports.Cells[iSROACol + j, iLastRow] := Format('%.0f', [aDBReport.ROAs[j]]);
+      dROASum := dROASum + aDBReport.ROAs[j];
+
+      GridDBReports.Cells[iSPLCol  +  j, iLastRow] := Format('%.0n', [aDBReport.NetProfits[j]]);
+      dPLSum := dPLSum + aDBReport.NetProfits[j];
+    end;
+
+
+    GridDBReports.Cells[iLROACol, iLastRow] := IfThenString(aDBReport.PeriodCount > 0,
+      Format('%.0f', [dROASum / aDBReport.PeriodCount], 'NoCount');
+    GridDBReports.Cells[iLPLCol, iLastRow] := IfThenString(aDBReport.PeriodCount > 0,
+      Format('%.0n', [dPLSum / aDBReport.PeriodCount], 'NoCount');
+
+
+    GridDBReports.Cells[REPORT_REPORTNAME_COL + (iMaxPeriodCount+1)*2 + 1, iLastRow] :=
+      FormatDateTime('yy-mm-dd', aDBReport.LastTradeDateTime);
+
+    GridDBReports.Cells[REPORT_REPORTNAME_COL + (iMaxPeriodCount+1)*2 + 2, iLastRow] :=
+      FormatDateTime('yy-mm-dd', aDBReport.UpdateTime);
+  end;
+  //
+  AutoGridColumnWidth(GridDBReports, 1, 5);
+  {
+  GridDBReports.RowCount := GRID_REPORT_STARTROW+1;
+  GridDBReports.Rows[GridDBReports.RowCount-1].Clear;
+
+  GridDBReports.ColCount := REPORT_UPDATE_COL+1;
+  //
+  GridDBReports.ColWidths[REPORT_REPORTNAME_COL] := REPORT_REPORTNAME_WIDTH;
+
+  if FDBReportList.Count = 0 then Exit;
+
+  for i := 0 to PERIOD_COUNT-1 do
+    GridDBReports.Cells[REPORT_ROA_SCOL+i, PERIOD_ROW] := IntToStr(i+1);
+  GridDBReports.Cells[REPORT_ROA_SCOL+PERIOD_COUNT, PERIOD_ROW] := 'avg';
+  //
+  for i := 0 to PERIOD_COUNT-1 do
+    GridDBReports.Cells[REPORT_PL_SCOL+ i, 1] := IntToStr(i+1);
+  GridDBReports.Cells[REPORT_PL_SCOL+PERIOD_COUNT, 1] := 'avg';
+
+
+  for i := 0 to PERIOD_COUNT do
+  begin
+    GridDBReports.ColWidths[REPORT_PL_SCOL + i] := REPORT_PL_WIDTH;
+    GridDBReports.ColWidths[REPORT_ROA_SCOL + i] := REPORT_ROA_WIDTH;
+  end;
+
+
+  GridDBReports.Cells[REPORT_REPORTNAME_COL, 1] := 'strategy';
+  GridDBReports.Cells[REPORT_LASTTRADE_COL, 1] := 'Last Trade';
+  GridDBReports.Cells[REPORT_UPDATE_COL, 1] := 'Update';
+
+  GridDBReports.ColWidths[REPORT_UPDATE_COL] := REPORT_UPDATE_WIDTH;
+
+
+  iLastRow := GridDBReports.RowCount-1;
+  for i := 0 to FDBReportList.Count-1 do
+  begin
+    aDBReport := TDBReport(FDBReportList.Items[i]);
+    if i > 0 then
+    begin
+      GridDBReports.RowCount := GridDBReports.RowCount+1;
+      iLastRow := GridDBReports.RowCount-1;
+      GridDBReports.Rows[iLastRow].Clear;
+    end;
+
+    //
+    GridDBReports.Objects[0, iLastRow] := aDBReport;
+    GridDBReports.Cells[REPORT_REPORTNAME_COL, iLastRow] := aDBReport.ReportName;
+    //
+    dROASum := 0;
+    dPLSum := 0;
+    for j := 0 to PERIOD_COUNT-1 do
+    begin
+      GridDBReports.Cells[REPORT_ROA_SCOL + j, iLastRow] := Format('%.0f', [aDBReport.ROAs[j]]);
+      dROASum := dROASum + aDBReport.ROAs[j];
+
+      GridDBReports.Cells[REPORT_PL_SCOL+j, iLastRow] := Format('%.0n', [aDBReport.NetProfits[j]]);
+      dPLSum := dPLSum + aDBReport.NetProfits[j];
+    end;
+
+    GridDBReports.Cells[REPORT_ROA_SCOL + PERIOD_COUNT, iLastRow] :=
+      Format('%.0f', [dROASum / aDBReport.PeriodCount]);
+    GridDBReports.Cells[REPORT_PL_SCOL + PERIOD_COUNT, iLastRow] :=
+      Format('%.0n', [dPLSum / aDBReport.PeriodCount]);
+
+
+    GridDBReports.Cells[REPORT_LASTTRADE_COL, iLastRow] :=
+      FormatDateTime('yy-mm-dd', aDBReport.LastTradeDateTime);
+
+    GridDBReports.Cells[REPORT_UPDATE_COL, iLastRow] :=
+      FormatDateTime('yy-mm-dd', aDBReport.UpdateTime);
+  end;
+  }
+
+end;
+
+procedure TDBReportSelector.N1Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+begin
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  if MessageDlg(aDBReport.ReportName + '을 레포트만(변수 제외) 삭제 하시겠습니까?',
+    mtConfirmation, [mbYes, mbNo], -1) <> mrYes then
+    Exit;
+  //
+  gDBReportManager.DeleteReport(aDBReport, True);
+  ButtonRefresh.Click;
+
+
+end;
+
+procedure TDBReportSelector.estChilds1Click(Sender: TObject);
+var
+  aDBReport : TDBReport;
+  stValue : String;
+  aDialog : TTextEditor;
+begin
+
+  if GridDBReports.Objects[0, GridDBReports.Row] = nil then Exit;
+
+  aDBReport := GridDBReports.Objects[0, GridDBReports.Row] as TDBReport;
+  //
+  //
+  //ShowMessage(aDBReport.ChildTests);
+
+
+  aDBReport.RenameProperties('child_tests', '');
+end;
+
+end.
+
+

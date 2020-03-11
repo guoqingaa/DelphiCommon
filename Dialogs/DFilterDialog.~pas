@@ -1,0 +1,117 @@
+unit DFilterDialog;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls;
+
+type
+  TFilterDialog = class(TForm)
+    ListSelecteds: TListBox;
+    Button1: TButton;
+    Button2: TButton;
+    Button3: TButton;
+    Button4: TButton;
+    procedure Button2Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+  private
+    function GetSelectCount: Integer;
+    function GetSelectedItem(i: Integer): TObject;
+    function GetSelected(i: Integer): String;
+    { Private declarations }
+  public
+    { Public declarations }
+    procedure AddItem(stItemText: String; aItem: TObject; bSelected: Boolean=False);
+
+    function Execute : Boolean;
+
+    property SelectCount: Integer read GetSelectCount;
+    property SelectedItem[i:Integer]: TObject read GetSelectedItem;
+    property Selecteds[i:Integer]: String read GetSelected;
+
+  end;
+
+var
+  FilterDialog: TFilterDialog;
+
+implementation
+
+{$R *.dfm}
+
+{ TFilterDialog }
+
+procedure TFilterDialog.AddItem(stItemText: String; aItem: TObject;
+  bSelected : Boolean);
+begin
+  ListSelecteds.AddItem(stItemText, aItem);
+  ListSelecteds.Selected[ListSelecteds.Items.Count-1] := bSelected;
+end;
+
+function TFilterDialog.Execute: Boolean;
+begin
+  Result := ShowModal = mrOk;
+end;
+
+function TFilterDialog.GetSelectCount: Integer;
+begin
+  Result := ListSelecteds.SelCount;
+end;
+
+function TFilterDialog.GetSelected(i: Integer): String;
+var
+  iP : Integer;
+begin
+  Result := '';
+  //
+  for iP := 0 to ListSelecteds.SelCount-1 do
+    if ListSelecteds.Selected[iP] then
+    begin
+      Result := ListSelecteds.Items.Strings[iP];
+      Dec(i);
+      //
+      if i < 0 then Break;
+    end;
+end;
+
+function TFilterDialog.GetSelectedItem(i: Integer): TObject;
+var
+  iP : Integer;
+begin
+  Result := nil;
+  //
+  for iP := 0 to ListSelecteds.Count{SelCount}-1 do
+    if ListSelecteds.Selected[iP] then
+    begin
+      Result := ListSelecteds.Items.Objects[iP];
+      Dec(i);
+      //
+      if i < 0 then Break;
+    end;
+
+end;
+
+procedure TFilterDialog.Button2Click(Sender: TObject);
+var
+  i : Integer;
+begin
+  for i := 0 to ListSelecteds.Count-1 do
+    ListSelecteds.Selected[i] := False;
+end;
+
+procedure TFilterDialog.Button4Click(Sender: TObject);
+var
+  i : Integer;
+begin
+  for i := 0 to ListSelecteds.Count-1 do
+    ListSelecteds.Selected[i] := True;
+
+end;
+
+procedure TFilterDialog.Button3Click(Sender: TObject);
+begin
+  ModalResult := mrCancel;
+end;
+
+end.

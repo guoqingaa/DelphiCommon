@@ -1,0 +1,98 @@
+unit SMS_Types;
+
+interface
+
+uses
+  SysUtils;
+
+type
+  TFourDoubleArray = array[0..4] of Double;
+  TNotifyStringEvent = procedure(const stMessage: String) of object;
+  TDouble2DArray = array of array of Double;
+
+  //-- conversion routines
+  function IntToStrComma(i:Integer) : String; overload;
+  function IntToStrComma(d:Double) : String; overload;
+  function CommaStrToFloat(stValue: String) : Double;
+
+
+type
+  TIntPair = record
+    IntValue : Integer;
+    IntValue2 : Integer;
+  end;
+  TIntPairArray = array of TIntPair;
+
+  TIntTriple = record
+    IntValue : Integer;
+    IntValue2 : Integer;
+    IntValue3 : Integer;
+  end;
+
+  TDoublePair = record
+    DoubleValue : Double;
+    DoubleValue2 : Double;
+  end;
+
+
+function IsOrdinalVarType(const aVarType : TVarType): Boolean;
+function IsFloatPointVarType(const aVarType : TVarType): Boolean;
+function IsNumericVarType(const aVarType: TVarType): Boolean;
+function IsStringVarType(const aVarType: TVarType): Boolean;
+function DoubleArrayToString(X : array of Double; cSep : Char = ';'): String;
+
+implementation
+
+function DoubleArrayToString(X : array of Double; cSep : Char = ';'): String;
+var
+  i : Integer;
+begin
+  Result := '';
+  //
+  for i := 0 to Length(X)-1 do
+    Result := Result + FloatToStr(X[i]) + cSep;
+end;
+
+function IsStringVarType(const aVarType: TVarType): Boolean;
+begin
+  Result := (aVarType = varString) or
+              (aVarType = $0102{Unicodestring});
+end;
+
+function IsNumericVarType(const aVarType: TVarType): Boolean;
+begin
+  Result := IsOrdinalVarType(aVarType) or IsFloatPointVarType(aVarType);
+end;
+
+function IsOrdinalVarType(const aVarType : TVarType): Boolean;
+begin
+  Result := aVarType in [varInteger, varShortInt, varByte, varInt64, varLongWord];
+end;
+
+function IsFloatPointVarType(const aVarType : TVarType): Boolean;
+begin
+  Result := aVarType in [varDouble, varSingle, varCurrency];
+
+end;
+
+
+function IntToStrComma(i:Integer) : String;
+begin
+  Result := Format('%.0n',[i*1.0]);
+end;
+
+function IntToStrComma(d:Double) : String;
+begin
+  Result := Format('%.0n',[d]);
+end;
+
+function CommaStrToFloat(stValue: String) : Double;
+var
+  stResult : String;
+begin
+  stResult := StringReplace(stValue, ',', '', [rfReplaceAll]);
+  Result := StrToFloat(stResult);    
+end;
+
+
+end.

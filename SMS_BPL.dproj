@@ -1,0 +1,252 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{C0D85BE0-D8AB-43C1-957B-70B09CB3790F}</ProjectGuid>
+        <MainSource>SMS_BPL.dpk</MainSource>
+        <Base>True</Base>
+        <Config Condition="'$(Config)'==''">Debug</Config>
+        <TargetedPlatforms>1153</TargetedPlatforms>
+        <AppType>Package</AppType>
+        <FrameworkType>VCL</FrameworkType>
+        <ProjectVersion>18.2</ProjectVersion>
+        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Android' and '$(Base)'=='true') or '$(Base_Android)'!=''">
+        <Base_Android>true</Base_Android>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win32' and '$(Base)'=='true') or '$(Base_Win32)'!=''">
+        <Base_Win32>true</Base_Win32>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+        <Base_Win64>true</Base_Win64>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+        <Cfg_1>true</Cfg_1>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Debug' or '$(Cfg_2)'!=''">
+        <Cfg_2>true</Cfg_2>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base)'!=''">
+        <DCC_E>false</DCC_E>
+        <DCC_F>false</DCC_F>
+        <DCC_K>false</DCC_K>
+        <DCC_N>true</DCC_N>
+        <DCC_S>false</DCC_S>
+        <DCC_ImageBase>00400000</DCC_ImageBase>
+        <DCC_DebugInformation>1</DCC_DebugInformation>
+        <GenDll>true</GenDll>
+        <GenPackage>true</GenPackage>
+        <SanitizedProjectName>SMS_BPL</SanitizedProjectName>
+        <DCC_OutputNeverBuildDcps>true</DCC_OutputNeverBuildDcps>
+        <DCC_Namespace>Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;IW.Server;Winapi;System.Win;Data.Win;$(DCC_Namespace)</DCC_Namespace>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Locale>1042</VerInfo_Locale>
+        <VerInfo_Keys>CompanyName=;FileDescription=;FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Android)'!=''">
+        <VerInfo_Keys>package=com.embarcadero.$(MSBuildProjectName);label=$(MSBuildProjectName);versionCode=1;versionName=1.0.0;persistent=False;restoreAnyVersion=False;installLocation=auto;largeHeap=False;theme=TitleBar;hardwareAccelerated=true;apiKey=</VerInfo_Keys>
+        <BT_BuildType>Debug</BT_BuildType>
+        <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Win32)'!=''">
+        <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;$(DCC_Namespace)</DCC_Namespace>
+        <BT_BuildType>Debug</BT_BuildType>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=;ProgramID=com.embarcadero.$(MSBuildProjectName)</VerInfo_Keys>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <Icon_MainIcon>SMS_BPL_Icon.ico</Icon_MainIcon>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base_Win64)'!=''">
+        <Icon_MainIcon>SMS_BPL_Icon.ico</Icon_MainIcon>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_1)'!=''">
+        <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+        <DCC_DebugInformation>0</DCC_DebugInformation>
+        <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+        <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2)'!=''">
+        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+        <DCC_Optimize>false</DCC_Optimize>
+        <DCC_GenerateStackFrames>true</DCC_GenerateStackFrames>
+    </PropertyGroup>
+    <ItemGroup>
+        <DelphiCompile Include="$(MainSource)">
+            <MainSource>MainSource</MainSource>
+        </DelphiCompile>
+        <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="vcljpg.dcp"/>
+        <DCCReference Include="vcl.dcp"/>
+        <DCCReference Include="dbrtl.dcp"/>
+        <DCCReference Include="indy.dcp"/>
+        <DCCReference Include="vcldb.dcp"/>
+        <DCCReference Include="adortl.dcp"/>
+        <DCCReference Include="vclx.dcp"/>
+        <DCCReference Include="DSMSRangeCompareTemplateManager.pas">
+            <Form>RangeCompareTemplateManager</Form>
+        </DCCReference>
+        <DCCReference Include="Office_TLB.pas"/>
+        <DCCReference Include="SMS_Actions.pas"/>
+        <DCCReference Include="SMS_Apps.pas"/>
+        <DCCReference Include="SMS_ArrayUtils.pas"/>
+        <DCCReference Include="SMS_Consts.pas"/>
+        <DCCReference Include="SMS_ConvertTypes.pas"/>
+        <DCCReference Include="SMS_CtrlDrawings.pas"/>
+        <DCCReference Include="SMS_CtrlUtils.pas"/>
+        <DCCReference Include="SMS_DateTimeDS.pas"/>
+        <DCCReference Include="SMS_DateTimes.pas"/>
+        <DCCReference Include="SMS_DB.pas"/>
+        <DCCReference Include="SMS_DrawingUtils.pas"/>
+        <DCCReference Include="SMS_DS.pas"/>
+        <DCCReference Include="SMS_Files.pas"/>
+        <DCCReference Include="SMS_FTPThread.pas"/>
+        <DCCReference Include="SMS_GlobalVariables.pas"/>
+        <DCCReference Include="SMS_Graphics.pas"/>
+        <DCCReference Include="SMS_Highlighter.pas"/>
+        <DCCReference Include="SMS_Image.pas"/>
+        <DCCReference Include="SMS_KeyBoards.pas"/>
+        <DCCReference Include="SMS_Maths.pas"/>
+        <DCCReference Include="SMS_Media.pas"/>
+        <DCCReference Include="SMS_Messages.pas"/>
+        <DCCReference Include="SMS_RangeCompare.pas"/>
+        <DCCReference Include="SMS_Strings.pas"/>
+        <DCCReference Include="SMS_Systems.pas"/>
+        <DCCReference Include="SMS_TextFileEditor.pas">
+            <Form>TextFileEditor</Form>
+        </DCCReference>
+        <DCCReference Include="SMS_Threads.pas"/>
+        <DCCReference Include="SMS_Types.pas"/>
+        <DCCReference Include="SMS_UtilObjects.pas"/>
+        <DCCReference Include="SMS_Windows.pas"/>
+        <DCCReference Include="Manager\Broadcaster.pas"/>
+        <DCCReference Include="Manager\LogManager.pas"/>
+        <DCCReference Include="Manager\SMS_Broadcaster.pas"/>
+        <DCCReference Include="Manager\SMS_StatusManager.pas"/>
+        <DCCReference Include="Manager\StatusManager.pas"/>
+        <DCCReference Include="Columns\SMS_Columns.pas"/>
+        <DCCReference Include="Columns\SMS_DColEdit.pas">
+            <Form>ColEditDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Columns\SMS_FormatColumns.pas"/>
+        <DCCReference Include="Dialogs\DCheckFilterDialog.pas">
+            <Form>CheckFilterDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DConfigKeyDialog.pas">
+            <Form>ConfigKeyDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DFilterDialog.pas">
+            <Form>FilterDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DGridColors.pas">
+            <Form>GridColorDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DInputString.pas">
+            <Form>InputStringDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DRichTokenDialog.pas">
+            <Form>RichTokenDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DSelectCombo.pas">
+            <Form>SelectComboDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DSelectStrings.pas">
+            <Form>SelectStrings</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DSelectTwoWay.pas">
+            <Form>SelectTwoWayDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DSMS_ConfirmDialog.pas">
+            <Form>ConfirmDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DSMS_ListSelector.pas">
+            <Form>ListSelectorDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DStringListView.pas">
+            <Form>StringListViewForm</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DStringPriority.pas">
+            <Form>StringPriorityConfig</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DTimeFilter.pas">
+            <Form>TimeFilterDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\DTokenDialog.pas">
+            <Form>TokenDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\SMS_DInputStep.pas">
+            <Form>StepInputDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\SMS_DTextEditor.pas">
+            <Form>TextEditor</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\SMS_DTimes.pas">
+            <Form>TimesDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\SMS_FileDirDialog.pas">
+            <Form>FileDirDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\SMS_InspectorGrid.pas"/>
+        <DCCReference Include="Dialogs\SMS_InspectorGridDialog.pas">
+            <Form>InspectorGridDialog</Form>
+        </DCCReference>
+        <DCCReference Include="Dialogs\SMS_StatusViewer.pas">
+            <Form>StatusViewer</Form>
+        </DCCReference>
+        <DCCReference Include="Window\SMS_Hint.pas">
+            <Form>SMSHint</Form>
+        </DCCReference>
+        <DCCReference Include="Window\SMS_LogWindow.pas">
+            <Form>SMSLogWindow</Form>
+        </DCCReference>
+        <DCCReference Include="Window\SMS_Progress.pas">
+            <Form>SMS_ProgressWindow</Form>
+        </DCCReference>
+        <DCCReference Include="Classes\SMS_ListSelector.pas"/>
+        <BuildConfiguration Include="Debug">
+            <Key>Cfg_2</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Base">
+            <Key>Base</Key>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Release">
+            <Key>Cfg_1</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+        <Borland.ProjectType>Package</Borland.ProjectType>
+        <BorlandProject>
+            <Delphi.Personality>
+                <Source>
+                    <Source Name="MainSource">SMS_BPL.dpk</Source>
+                </Source>
+            </Delphi.Personality>
+            <Platforms>
+                <Platform value="Android">False</Platform>
+                <Platform value="iOSDevice32">False</Platform>
+                <Platform value="iOSDevice64">True</Platform>
+                <Platform value="iOSSimulator">False</Platform>
+                <Platform value="Linux64">True</Platform>
+                <Platform value="Win32">True</Platform>
+                <Platform value="Win64">False</Platform>
+            </Platforms>
+        </BorlandProject>
+        <ProjectFileVersion>12</ProjectFileVersion>
+    </ProjectExtensions>
+    <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
+    <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
+</Project>

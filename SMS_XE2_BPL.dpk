@@ -1,0 +1,114 @@
+package SMS_XE2_BPL;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS OFF}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE RELEASE}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vclx,
+  vcl,
+  vclimg,
+  dbrtl,
+  IndySystem,
+  IndyProtocols,
+  IndyCore;
+
+contains
+  DSMSRangeCompareTemplateManager in 'DSMSRangeCompareTemplateManager.pas' {RangeCompareTemplateManager},
+  SMS_Actions in 'SMS_Actions.pas',
+  SMS_Apps in 'SMS_Apps.pas',
+  SMS_ArrayUtils in 'SMS_ArrayUtils.pas',
+  SMS_Consts in 'SMS_Consts.pas',
+  SMS_ConvertTypes in 'SMS_ConvertTypes.pas',
+  SMS_CtrlDrawings in 'SMS_CtrlDrawings.pas',
+  SMS_CtrlUtils in 'SMS_CtrlUtils.pas',
+  SMS_DateTimeDS in 'SMS_DateTimeDS.pas',
+  SMS_DateTimes in 'SMS_DateTimes.pas',
+  SMS_DB in 'SMS_DB.pas',
+  SMS_DrawingUtils in 'SMS_DrawingUtils.pas',
+  SMS_DS in 'SMS_DS.pas',
+  SMS_Excels in 'SMS_Excels.pas',
+  SMS_Files in 'SMS_Files.pas',
+  SMS_FTPThread in 'SMS_FTPThread.pas',
+  SMS_GlobalVariables in 'SMS_GlobalVariables.pas',
+  SMS_Graphics in 'SMS_Graphics.pas',
+  SMS_GridUtilizer in 'SMS_GridUtilizer.pas',
+  SMS_Highlighter in 'SMS_Highlighter.pas',
+  SMS_Image in 'SMS_Image.pas',
+  SMS_KeyBoards in 'SMS_KeyBoards.pas',
+  SMS_Maths in 'SMS_Maths.pas',
+  SMS_Media in 'SMS_Media.pas',
+  SMS_Messages in 'SMS_Messages.pas',
+  SMS_RangeCompare in 'SMS_RangeCompare.pas',
+  SMS_Systems in 'SMS_Systems.pas',
+  SMS_TextFileEditor in 'SMS_TextFileEditor.pas' {TextFileEditor},
+  SMS_Threads in 'SMS_Threads.pas',
+  SMS_Types in 'SMS_Types.pas',
+  SMS_UtilObjects in 'SMS_UtilObjects.pas',
+  SMS_Windows in 'SMS_Windows.pas',
+  SMS_XMLs in 'SMS_XMLs.pas',
+  Broadcaster in 'Manager\Broadcaster.pas',
+  LogManager in 'Manager\LogManager.pas',
+  SMS_Broadcaster in 'Manager\SMS_Broadcaster.pas',
+  SMS_StatusManager in 'Manager\SMS_StatusManager.pas',
+  StatusManager in 'Manager\StatusManager.pas',
+  SMS_Columns in 'Columns\SMS_Columns.pas',
+  SMS_DColEdit in 'Columns\SMS_DColEdit.pas' {ColEditDialog},
+  SMS_DColumns in 'Columns\SMS_DColumns.pas' {ColumnsConfig},
+  SMS_FormatColumns in 'Columns\SMS_FormatColumns.pas',
+  DCheckFilterDialog in 'Dialogs\DCheckFilterDialog.pas' {CheckFilterDialog},
+  DConfigKeyDialog in 'Dialogs\DConfigKeyDialog.pas' {ConfigKeyDialog},
+  DFilterDialog in 'Dialogs\DFilterDialog.pas' {FilterDialog},
+  DGridColors in 'Dialogs\DGridColors.pas' {GridColorDialog},
+  DInputString in 'Dialogs\DInputString.pas' {InputStringDialog},
+  DRichTokenDialog in 'Dialogs\DRichTokenDialog.pas' {RichTokenDialog},
+  DSelectCombo in 'Dialogs\DSelectCombo.pas' {SelectComboDialog},
+  DSelectExcelChart in 'Dialogs\DSelectExcelChart.pas' {SelectExcelChartType},
+  DSelectStrings in 'Dialogs\DSelectStrings.pas' {SelectStrings},
+  DSelectTwoWay in 'Dialogs\DSelectTwoWay.pas' {SelectTwoWayDialog},
+  DSMS_ConfirmDialog in 'Dialogs\DSMS_ConfirmDialog.pas' {ConfirmDialog},
+  DSMS_ListSelector in 'Dialogs\DSMS_ListSelector.pas' {ListSelectorDialog},
+  DStringListView in 'Dialogs\DStringListView.pas' {StringListViewForm},
+  DStringPriority in 'Dialogs\DStringPriority.pas' {StringPriorityConfig},
+  DTimeFilter in 'Dialogs\DTimeFilter.pas' {TimeFilterDialog},
+  DTokenDialog in 'Dialogs\DTokenDialog.pas' {TokenDialog},
+  SMS_DInputStep in 'Dialogs\SMS_DInputStep.pas' {StepInputDialog},
+  SMS_DTextEditor in 'Dialogs\SMS_DTextEditor.pas' {TextEditor},
+  SMS_DTimes in 'Dialogs\SMS_DTimes.pas' {TimesDialog},
+  SMS_FileDirDialog in 'Dialogs\SMS_FileDirDialog.pas' {FileDirDialog},
+  SMS_InspectorGrid in 'Dialogs\SMS_InspectorGrid.pas',
+  SMS_InspectorGridDialog in 'Dialogs\SMS_InspectorGridDialog.pas' {InspectorGridDialog},
+  SMS_StatusViewer in 'Dialogs\SMS_StatusViewer.pas' {StatusViewer},
+  SMS_Hint in 'Window\SMS_Hint.pas' {SMSHint},
+  SMS_LogWindow in 'Window\SMS_LogWindow.pas' {SMSLogWindow},
+  SMS_Progress in 'Window\SMS_Progress.pas' {SMS_ProgressWindow},
+  SMS_ListSelector in 'Classes\SMS_ListSelector.pas',
+  SMS_Controls in 'Controls\SMS_Controls.pas',
+  SMS_Strings in 'SMS_Strings.pas';
+
+end.
+

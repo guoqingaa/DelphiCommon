@@ -1,0 +1,267 @@
+object DBReportSelector: TDBReportSelector
+  Left = 148
+  Top = 157
+  Caption = #47112#54252#53944' '#44288#47532#51088
+  ClientHeight = 441
+  ClientWidth = 1061
+  Color = clBtnFace
+  DefaultMonitor = dmDesktop
+  Font.Charset = ANSI_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -12
+  Font.Name = #47569#51008' '#44256#46357
+  Font.Style = []
+  OldCreateOrder = False
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  PixelsPerInch = 96
+  TextHeight = 15
+  object Splitter1: TSplitter
+    Left = 680
+    Top = 30
+    Width = 5
+    Height = 411
+    ExplicitLeft = 682
+  end
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 1061
+    Height = 30
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 0
+    object Label1: TLabel
+      Left = 8
+      Top = 7
+      Width = 27
+      Height = 15
+      Caption = #54596#53552':'
+    end
+    object Label2: TLabel
+      Left = 760
+      Top = 7
+      Width = 114
+      Height = 15
+      Caption = #49884#51089' '#45380#50900' (YYYYMM)'
+      Font.Charset = ANSI_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -12
+      Font.Name = #47569#51008' '#44256#46357
+      Font.Style = []
+      ParentFont = False
+    end
+    object ButtonRefresh: TSpeedButton
+      Left = 336
+      Top = 4
+      Width = 74
+      Height = 22
+      Caption = #49352#47196' '#44256#52840
+      Flat = True
+      OnClick = ButtonRefreshClick
+    end
+    object SpeedButton2: TSpeedButton
+      Left = 416
+      Top = 4
+      Width = 74
+      Height = 22
+      Caption = #44032#51256' '#50724#44592
+      Flat = True
+      OnClick = ButtonLoad
+    end
+    object EditUpdateDate: TEdit
+      Left = 883
+      Top = 3
+      Width = 121
+      Height = 23
+      ImeName = 'Microsoft Office IME 2007'
+      TabOrder = 0
+      Text = '200001'
+    end
+    object Button3: TButton
+      Left = 667
+      Top = 2
+      Width = 75
+      Height = 25
+      Caption = #49325#51228
+      TabOrder = 1
+      OnClick = Button3Click
+    end
+    object Button4: TButton
+      Tag = 20
+      Left = 506
+      Top = 2
+      Width = 75
+      Height = 25
+      Caption = 'Load&&Add'
+      TabOrder = 2
+      OnClick = ButtonLoad
+    end
+    object ButtonNewLoad: TButton
+      Left = 586
+      Top = 2
+      Width = 75
+      Height = 25
+      Caption = 'New&&Load'
+      TabOrder = 3
+      OnClick = ButtonNewLoadClick
+    end
+    object ComboRecentReportFilters: TComboBox
+      Left = 41
+      Top = 3
+      Width = 140
+      Height = 23
+      TabOrder = 4
+      Text = '%'
+      OnKeyDown = ComboRecentReportFiltersKeyDown
+    end
+    object ComboRecentGroupFilters: TComboBox
+      Left = 193
+      Top = 3
+      Width = 142
+      Height = 23
+      TabOrder = 5
+      Text = '%'
+      OnKeyDown = ComboRecentGroupFiltersKeyDown
+    end
+  end
+  object Panel2: TPanel
+    Left = 685
+    Top = 30
+    Width = 56
+    Height = 411
+    Align = alLeft
+    BevelOuter = bvNone
+    TabOrder = 1
+    object ButtonNewGroup: TSpeedButton
+      Left = 6
+      Top = 88
+      Width = 39
+      Height = 22
+      Caption = 'New'
+      Flat = True
+      Font.Charset = ANSI_CHARSET
+      Font.Color = clBlue
+      Font.Height = -12
+      Font.Name = #47569#51008' '#44256#46357
+      Font.Style = [fsBold]
+      ParentFont = False
+      OnClick = ButtonNewGroupClick
+    end
+    object ButtonAddToGroup: TSpeedButton
+      Left = 9
+      Top = 128
+      Width = 35
+      Height = 22
+      Caption = '>'
+      Flat = True
+      Font.Charset = ANSI_CHARSET
+      Font.Color = clBlue
+      Font.Height = -12
+      Font.Name = #47569#51008' '#44256#46357
+      Font.Style = [fsBold]
+      ParentFont = False
+      OnClick = ButtonAddToGroupClick
+    end
+    object UploadReportGroup: TSpeedButton
+      Left = 2
+      Top = 184
+      Width = 47
+      Height = 22
+      Caption = 'Upload'
+      Flat = True
+      Font.Charset = ANSI_CHARSET
+      Font.Color = clBlue
+      Font.Height = -12
+      Font.Name = #47569#51008' '#44256#46357
+      Font.Style = []
+      ParentFont = False
+      OnClick = UploadReportGroupClick
+    end
+    object SpeedButton1: TSpeedButton
+      Left = 1
+      Top = 224
+      Width = 49
+      Height = 22
+      Caption = 'Delete'
+      Flat = True
+      Font.Charset = ANSI_CHARSET
+      Font.Color = clBlue
+      Font.Height = -12
+      Font.Name = #47569#51008' '#44256#46357
+      Font.Style = []
+      ParentFont = False
+      OnClick = SpeedButton1Click
+    end
+  end
+  object GridReportGroups: TStringGrid
+    Left = 741
+    Top = 30
+    Width = 320
+    Height = 411
+    Align = alClient
+    DefaultRowHeight = 17
+    DefaultDrawing = False
+    FixedCols = 0
+    Font.Charset = ANSI_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Arial'
+    Font.Style = []
+    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine]
+    ParentFont = False
+    TabOrder = 2
+    OnDrawCell = GridReportGroupsDrawCell
+  end
+  object GridDBReports: TStringGrid
+    Left = 0
+    Top = 30
+    Width = 680
+    Height = 411
+    Align = alLeft
+    DefaultRowHeight = 15
+    DefaultDrawing = False
+    DrawingStyle = gdsClassic
+    FixedCols = 0
+    FixedRows = 3
+    Font.Charset = ANSI_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Arial'
+    Font.Style = []
+    Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goRowSelect]
+    ParentFont = False
+    PopupMenu = PopupMenu1
+    TabOrder = 3
+    OnDblClick = GridDBReportsDblClick
+    OnDrawCell = GridDBReportsDrawCell
+  end
+  object PopupMenu1: TPopupMenu
+    Left = 152
+    Top = 136
+    object Desc1: TMenuItem
+      Caption = #47112#54252#53944' Desc '#49688#51221
+      OnClick = Desc1Click
+    end
+    object GetReportSerial1: TMenuItem
+      Caption = 'Get Report Serial'
+      OnClick = GetReportSerial1Click
+    end
+    object Comment1: TMenuItem
+      Caption = 'Comment '#49688#51221
+      OnClick = Comment1Click
+    end
+    object Symbol1: TMenuItem
+      Caption = 'Symbol '#49688#51221
+      OnClick = Symbol1Click
+    end
+    object N1: TMenuItem
+      Caption = #47112#54252#53944#47564' '#51228#44144'('#48320#49688' '#51228#50808')'
+      OnClick = N1Click
+    end
+    object estChilds1: TMenuItem
+      Caption = 'TestChilds Clear'
+      OnClick = estChilds1Click
+    end
+  end
+end
