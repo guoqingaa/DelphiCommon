@@ -85,7 +85,7 @@ type
                         bDelivery: Boolean = False);
     //
     function Count : Integer;
-    function SubscribeReceivers : String;
+    function SubscribeReceivers(const iKind: Integer) : String;
   end;
 
   //----------------------------------------------------------
@@ -585,7 +585,7 @@ begin
   Result := Add(aReceiver, aProc);
 end;
 
-function TBroadcaster.SubscribeReceivers: String;
+function TBroadcaster.SubscribeReceivers(const iKind: Integer): String;
 var
   i : Integer;
   aReq : TBroadcastReqItem;
@@ -596,10 +596,13 @@ begin
   begin
     aReq := FBroadcastReqs.Items[i] as TBroadcastReqItem;
     //
-    if i > 0 then
-      Result := Result + ',';
-    //
-    Result := Result + aReq.Receiver.ClassName+'('+IntToStr(aReq.ReqKind)+')';
+    if aReq.ReqKind = iKind then
+    begin
+      if Result <> '' then
+        Result := Result + ',';
+      //
+      Result := Result + aReq.Receiver.ClassName;//+'('+IntToStr(aReq.ReqKind)+')';
+    end;
   end;
 end;
 
